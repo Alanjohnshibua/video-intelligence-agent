@@ -1,280 +1,357 @@
 # Video Intelligence Agent
 
-Video Intelligence Agent is a lightweight AI CCTV Surveillance Agent for offline video analysis. It detects faces, recognizes known vs unknown individuals, tracks people across frames, classifies security-relevant events, saves clips and snapshots, and generates daily summaries that are easy to review in an interview or demo.
+Video Intelligence Agent is a production-minded hybrid AI system for CCTV and offline video analytics. Instead of sending raw footage directly to an LLM, it first extracts structured evidence with computer vision modules such as motion detection, YOLO-based person detection, face identification, tracking, event extraction, and clip logging. A language model such as Gemini is then used only for reasoning over those structured events and generating operator-facing summaries.
 
-The repository package name is still `video_intelligence_agent`, but the project is now framed as a production-minded surveillance system rather than a classroom-only face recognition script.
+This makes the project much more than a thin API wrapper. It behaves like a real AI pipeline with measurable intermediate outputs, auditable decisions, graceful failure handling, and deployable artifacts.
 
-## Why This Project Stands Out
+## Why This Project Feels Like Real AI Engineering
 
-- Real pipeline, not just model inference: `video -> motion filtering -> face analysis -> tracking -> event decisions -> storage -> summary`
-- CPU-friendly defaults: designed for offline review on modest hardware
-- Recruiter-friendly artifacts: YAML config, production-style entrypoint, event logs, saved evidence, and summary reports
-- Clear upgrade path: multi-camera orchestration, action detection, dashboarding, and database-backed audit trails
+- Hybrid CV + LLM architecture instead of prompt-only inference
+- Deterministic pipeline stages with inspectable outputs
+- Event logs, clips, and summaries that look like operational artifacts
+- Error handling and degradation paths for model failures
+- Clear separation between perception, reasoning, and persistence
 
 ## System Architecture
 
 ```text
-Camera / Video File
-        |
-        v
-Video Ingestion
-        |
-        v
-Motion Filtering
-        |
-        v
-Face Detection
-        |
-        v
-Face Recognition
-        |
-        v
-Tracking
-        |
-        v
-Event Classification + Alerting
-        |
-        +--> Clip / Snapshot Extraction
-        |
-        +--> JSONL Event Logging
-        |
-        v
-Daily Summary Generation
+                    +----------------------+
+                    |  Video File / CCTV   |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |   Frame Extraction   |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |   Motion Detection   |
+                    +----------+-----------+
+                               |
+                +--------------+---------------+
+                |                              |
+                v                              v
+     +----------------------+      +----------------------+
+     | Scene / Person Det.  |      | Face Identification  |
+     |   YOLOv8 Nano        |      | DeepFace / ArcFace   |
+     +----------+-----------+      +----------+-----------+
+                |                              |
+                +--------------+---------------+
+                               |
+                               v
+                    +----------------------+
+                    |   Multi-Object       |
+                    |     Tracking         |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    |   Event Extraction   |
+                    | enter/exit/loiter    |
+                    +----+------------+----+
+                         |            |
+                         v            v
+              +----------------+   +------------------+
+              | JSON Event Log |   | Clip Extraction  |
+              +--------+-------+   +---------+--------+
+                       \                 /
+                        \               /
+                         v             v
+                    +----------------------+
+                    | AI Agent Reasoning   |
+                    | Gemini / LLM Layer   |
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    | Summary Generation   |
+                    +----------------------+
 ```
 
-## Refactored Project Structure
+## Design Philosophy
+
+- Use computer vision for perception, not an LLM.
+- Send the LLM structured evidence, not raw frames.
+- Keep the system lightweight enough for local and CPU-first demos.
+- Favor observability and debugability over flashy black-box behavior.
+- Make every module replaceable so the system can evolve incrementally.
+
+## Current Weaknesses Found In The Original Direction
+
+Before the current refactor, the project risked feeling like a demo because:
+
+- the narrative was split between face recognition, CCTV analysis, and video summarization
+- the LLM story was stronger than the engineering story
+- there was no obvious production pipeline visible at the repo root
+- intermediate artifacts were under-explained
+- the system design was not framed as a hybrid AI pipeline
+
+The refactor addresses that by centering the repo around a structured CV pipeline with an optional reasoning layer on top.
+
+## Production Pipeline
+
+```text
+Video Input
+  -> Frame Extraction
+  -> Motion Detection
+  -> Scene Detection
+  -> Person / Face Detection
+  -> Tracking
+  -> Event Extraction
+  -> Evidence Logging
+  -> AI Reasoning
+  -> Summary Generation
+```
+
+### Stage Breakdown
+
+- `Frame Extraction`
+  Reads offline video files, keeps frame indices and timestamps, and exposes deterministic replay.
+- `Motion Detection`
+  Filters inactive footage early so expensive inference is applied only where needed.
+- `Scene / Person Detection`
+  Uses YOLOv8 Nano for people and optional scene understanding.
+- `Face Identification`
+  Attempts known-vs-unknown identity matching using the local face-ID stack.
+- `Tracking`
+  Maintains track continuity with a lightweight tracker and a clean upgrade path to DeepSORT or ByteTrack.
+- `Event Extraction`
+  Converts track state into events such as entering, exiting, and loitering.
+- `Evidence Logging`
+  Stores JSON event records plus event clips for review and auditability.
+- `AI Reasoning`
+  Uses an LLM only for operator Q&A, explanation, and report generation.
+
+## Project Structure
 
 ```text
 project/
-|-- src/
-|   `-- video_intelligence_agent/
-|       |-- surveillance/
-|       |   |-- ingestion/
-|       |   |-- detection/
-|       |   |-- recognition/
-|       |   |-- tracking/
-|       |   |-- events/
-|       |   |-- logging/
-|       |   |-- summary/
-|       |   |-- pipeline/
-|       |   `-- config.py
-|       |-- cctv/
-|       |-- engines/
-|       |-- core.py
-|       `-- cli.py
-|-- data/
-|-- outputs/
-|   `-- examples/
-|-- tests/
-|-- main.py
-`-- config.yaml
+│── src/
+│   └── video_intelligence_agent/
+│       ├── video_processing/
+│       ├── detection/
+│       ├── tracking/
+│       ├── agent/
+│       ├── summarization/
+│       ├── cctv_pipeline/
+│       ├── cctv/
+│       ├── surveillance/
+│       └── engines/
+│── docs/
+│── outputs/
+│── samples/
+│── app.py
+│── main.py
+│── config.yaml
+│── pyproject.toml
 ```
 
-## What Each Folder Does
+### Folder Responsibilities
 
-- `src/video_intelligence_agent/surveillance/ingestion/`: video readers and camera/file input adapters
-- `src/video_intelligence_agent/surveillance/detection/`: face detection stage interfaces and detection outputs
-- `src/video_intelligence_agent/surveillance/recognition/`: known-vs-unknown identity resolution
-- `src/video_intelligence_agent/surveillance/tracking/`: per-person track management across frames
-- `src/video_intelligence_agent/surveillance/events/`: event rules, alert severity, and action labels
-- `src/video_intelligence_agent/surveillance/logging/`: evidence persistence, event manifests, snapshots, and clips
-- `src/video_intelligence_agent/surveillance/summary/`: daily reporting and operator-facing summaries
-- `src/video_intelligence_agent/surveillance/pipeline/`: high-level surveillance runner
-- `data/`: embedding database and local runtime artifacts
-- `outputs/`: generated clips, unknown face crops, summaries, and example deliverables
-- `tests/`: unit tests for the face pipeline, CCTV agent, and runtime config loader
+- `src/video_intelligence_agent/video_processing/`
+  Frame extraction and ingestion wrappers.
+- `src/video_intelligence_agent/detection/`
+  Person detection and optional scene analysis interfaces.
+- `src/video_intelligence_agent/tracking/`
+  Recruiter-friendly tracking entrypoint and adapters.
+- `src/video_intelligence_agent/agent/`
+  Hybrid reasoning layer for Gemini or other LLMs.
+- `src/video_intelligence_agent/summarization/`
+  Summary generation modules.
+- `src/video_intelligence_agent/cctv_pipeline/`
+  Production CCTV pipeline with logging, errors, events, and clips.
+- `docs/`
+  Architecture notes, interview guide, and system design documents.
 
 ## Tech Stack
 
-- Python 3.10+
-- NumPy
-- OpenCV for video ingestion, motion filtering, and clip writing
-- DeepFace-compatible backends for RetinaFace + ArcFace
-- JSONL manifests for lightweight audit logging
-- Optional Faster-Whisper and LLM summarization modules for richer video review
-- Optional YOLOv8 Nano visual scene analysis from Hugging Face for multimodal summaries
+### Computer Vision
 
-## GPU Acceleration
+- OpenCV for video IO, motion detection, frame annotation, and clip writing
+- YOLOv8 Nano for person detection
+- DeepFace-compatible face recognition stack
+- Rule-based event extraction for explainable behavior
+- Lightweight IoU tracker today, upgradeable to SORT, DeepSORT, or ByteTrack
 
-- Face detection and recognition can use your TensorFlow GPU runtime automatically when DeepFace is configured with GPU support.
-- The surveillance config now includes `prefer_gpu: true` and `tensorflow_memory_growth: true` to make GPU use the default while avoiding aggressive TensorFlow memory reservation.
-- The video summarizer now defaults to `--whisper-device auto`, which selects `cuda` automatically when PyTorch detects a GPU.
-- The local Transformers summarizer backend already prefers CUDA and 4-bit quantization when available.
+### AI / Agent Layer
 
-Native Windows note:
+- Gemini-compatible or other LLM responder for reasoning and report generation
+- Structured prompts built from extracted events rather than raw footage
 
-- TensorFlow GPU acceleration is not supported on native Windows for TensorFlow 2.11+.
-- On native Windows, the DeepFace surveillance pipeline will typically run on CPU even if your laptop has an NVIDIA GPU.
-- For true TensorFlow GPU acceleration in the surveillance pipeline, use WSL2/Linux or a DirectML-compatible stack.
-- The summarizer can still benefit from GPU through PyTorch when your CUDA environment is configured correctly.
+### Engineering Stack
 
-What stays CPU-bound:
+- Python
+- Typed dataclasses and modular services
+- JSON event persistence
+- Streamlit operator demo via `app.py`
+- Config-driven runtime via `config.yaml`
 
-- OpenCV video decoding in this repo
-- Motion filtering heuristics
-- Lightweight event rules and JSON logging
+## Hybrid CV + LLM Strategy
 
-## Recommended Models
+This project avoids the usual “API wrapper” feel by treating the LLM as a reasoning layer, not as the perception engine.
 
-### Face Detection
+### What Happens Before Gemini
 
-- `RetinaFace`: strongest default here because it handles varied pose and partial occlusion better than very lightweight Haar-style detectors
-- `MTCNN`: good CPU fallback when absolute speed matters more than edge-case robustness
+- frames are extracted from video
+- inactive footage is filtered with motion detection
+- people are detected with YOLO
+- tracks are maintained over time
+- identity is attempted locally
+- events are extracted and logged with clips
 
-### Face Recognition
+### What Gemini Should Do
 
-- `ArcFace`: strong embedding quality, mature ecosystem, and reliable performance for small-to-medium identity galleries
-- `InsightFace`: good production choice when you want a cleaner deployment story around modern face-recognition tooling
+- explain what happened in plain English
+- answer operator questions over structured events
+- generate executive summaries
+- provide investigative reasoning over time windows and event sequences
 
-### Tracking
+That division gives lower cost, clearer debugging, and better system credibility.
 
-- `SORT`: best lightweight baseline for CPU-only pipelines and demos
-- `DeepSORT`: better when identity consistency matters more than raw simplicity
+## Sample Outputs
 
-Why these choices:
+### Event Log Style
 
-- They are common enough that interviewers recognize them immediately
-- They offer a realistic trade-off between quality and deployment cost
-- They fit a modular architecture where each stage can be swapped later
+```text
+[10:32] Unknown person detected
+[10:35] Person stayed near entrance (loitering)
+[10:40] Person exited
+```
 
-## Real-World Features Included
+### Real Example From This Repo
 
-- Unknown person alerting with severity labels
-- Event classification for entry, exit, interaction, loitering, and suspicious presence
-- Unknown face snapshot extraction
-- Event clip extraction
-- Timestamped JSONL event manifests
-- Human-readable daily summary output
+```text
+[10:32:04 AM] ALERT=medium CATEGORY=unknown_person_detected CAMERA=lobby-cam-01 EVENT=event-0003 PERSON=Unknown Person
+[10:35:18 AM] ALERT=high CATEGORY=suspicious_presence CAMERA=lobby-cam-01 EVENT=event-0004 DETAIL=Unknown Person loitering near entrance for 21.4s
+[10:41:52 AM] ALERT=low CATEGORY=entry CAMERA=lobby-cam-01 EVENT=event-0005 PERSON=Alan DETAIL=Known employee entered north door
+```
+
+### Event JSON Example
+
+```json
+{
+  "person_id": "unknown_1",
+  "action": "loitering",
+  "start_time": "00:00:00.200",
+  "end_time": "00:00:15.600",
+  "duration_seconds": 15.4,
+  "track_id": 1
+}
+```
+
+### Available Generated Artifacts
+
+- [outputs/lobby_demo/latest_analysis.json](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/outputs/lobby_demo/latest_analysis.json)
+- [outputs/lobby_demo/events.json](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/outputs/lobby_demo/events.json)
+- [outputs/lobby_demo/daily_summary.txt](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/outputs/lobby_demo/daily_summary.txt)
+- [outputs/examples/event_log.txt](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/outputs/examples/event_log.txt)
+
+## Use Cases
+
+- CCTV footage review for offices and small facilities
+- Unknown-person detection around entrances
+- Occupancy and movement analytics
+- Long-form video summarization for security and operations teams
+- Research demos for hybrid AI system design
+
+## Streamlit App
+
+The repo includes a lightweight Streamlit operator shell:
+
+```bash
+streamlit run app.py
+```
+
+This is intentionally positioned as an operator interface on top of the real pipeline, not as the core intelligence layer.
 
 ## Quick Start
 
-Install the base project for tests and local development:
+Install the base project:
 
 ```bash
-pip install -e .[dev]
+pip install -e .
 ```
 
-Install transcript + visual-summary extras:
+Install development tools:
 
 ```bash
-pip install -e .[summary,scene]
+pip install -e ".[dev]"
 ```
 
-Run the recruiter-friendly surveillance entrypoint:
+Install the full CV stack:
+
+```bash
+pip install -e ".[full]"
+```
+
+Run the production pipeline:
 
 ```bash
 python main.py --config config.yaml
 ```
 
-If your GPU stack is installed correctly, the face pipeline will prefer GPU automatically.
-
-Override the video path at runtime:
+Enable debug-mode artifacts:
 
 ```bash
-python main.py --config config.yaml --video samples/lobby_demo.mp4
+python main.py --config config.yaml --debug
 ```
 
-Generate a multimodal summary with YOLOv8 Nano scene analysis plus Qwen:
+Query stored events:
 
 ```bash
-video-intelligence-agent summarize-video --video samples/demo.mp4 --no-person-id --scene-analysis
+python main.py --config config.yaml --query-action loitering
 ```
 
-The run writes:
+## Engineering Improvements Added
 
-- `outputs/.../latest_analysis.json`
-- `outputs/.../daily_summary.txt`
-- `data/cctv_agent/manifests/events.jsonl` or your configured output manifest
-
-## Sample Outputs
-
-### Example Log Lines
-
-```text
-[10:32:04 AM] Unknown person detected near lobby entrance
-[10:35:18 AM] Unknown person stayed near entrance for 21.4s (loitering)
-[10:41:52 AM] Alan entered through north door
-[10:44:07 AM] Alan exited through north door
-```
-
-### Example Event Manifest Snippet
-
-```json
-{
-  "event_id": "event-0004",
-  "event_category": "suspicious_presence",
-  "alert_level": "high",
-  "alert_reasons": [
-    "unknown person detected",
-    "loitering behavior detected"
-  ],
-  "start_timestamp": "2026-04-04T10:35:18",
-  "end_timestamp": "2026-04-04T10:35:39"
-}
-```
-
-### Example Daily Summary
-
-See [outputs/examples/daily_summary.txt](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/outputs/examples/daily_summary.txt) and [outputs/examples/event_log.txt](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/outputs/examples/event_log.txt).
-
-## Screenshots
-
-Placeholders for portfolio or README assets:
-
-- `docs/screenshots/dashboard-overview.png`
-- `docs/screenshots/unknown-person-alert.png`
-- `docs/screenshots/event-timeline.png`
-- `docs/screenshots/summary-report.png`
-
-## Use Cases
-
-- Office entrance monitoring
-- Visitor review for small businesses
-- Warehouse after-hours surveillance
-- Hostel or apartment lobby event review
-- Smart evidence extraction from long CCTV footage
-
-## Design Decisions
-
-- Motion-first filtering reduces wasted compute on inactive footage
-- Face recognition is separated from tracking so each stage can evolve independently
-- Rule-based event classification keeps the system transparent and CPU-friendly
-- JSONL logs are simple, grep-able, and easy to upgrade to SQLite later
-- The `surveillance` package provides a cleaner architecture without breaking older modules
-
-## Interview Talking Points
-
-- The project optimizes for practical offline surveillance review, not just per-frame accuracy
-- I kept the default pipeline modular so detection, recognition, and tracking can be swapped independently
-- I added event severity and timestamp normalization because operators need actionable logs, not raw model outputs
-- I kept the baseline CPU-friendly and reserved heavier models for clearly defined future upgrades
+- Modular `cctv_pipeline` package with centralized orchestration
+- Stronger logging and error-handling boundaries
+- Clip extraction for key events
+- JSON event storage and query support
+- Recruiter-facing package structure for processing, detection, tracking, agent, and summarization
+- Hybrid reasoning module that prepares structured evidence for Gemini
 
 ## Limitations
 
-- The default tracker is intentionally lightweight and can drift in crowded scenes
-- Face recognition quality still depends on enrollment image quality and lighting
-- The current event classifier is heuristic, not learned action recognition
-- This is best suited to single-camera offline review today
+- The default tracker is lightweight and can fragment IDs in crowded scenes.
+- Face identification still depends on local enrollment quality and backend stability.
+- Event logic is rule-based rather than learned action recognition.
+- Current optimization target is offline review, not high-throughput real-time streaming.
 
-## Future Improvements
+## Future Work
 
-- YOLO-based person and action detection
-- DeepSORT or ByteTrack integration for denser scenes
+- Multi-camera orchestration and cross-camera identity handoff
+- Real-time streaming pipeline with per-camera workers
 - SQLite or PostgreSQL event storage
-- Flask/FastAPI backend with React dashboard
-- Multi-camera correlation and handoff
-- GPU acceleration profiles
-- Webhook or email notifications for critical alerts
+- FastAPI or Flask backend with React dashboard
+- ByteTrack or DeepSORT integration
+- Quantized models and frame-skipping profiles for edge devices
+- Better face-recognition backend using InsightFace
 
-## Additional Documentation
+## Interview-Ready Explanations
 
+### Explain The System In 60 Seconds
+
+Video Intelligence Agent is a hybrid AI system for CCTV video analysis. It first extracts structured evidence from video using motion detection, YOLO-based person detection, tracking, event extraction, and optional face identification. Those outputs are saved as JSON logs and clips. Only after that does an LLM such as Gemini reason over the structured events to answer questions and generate summaries. That separation makes the system more efficient, explainable, and production-oriented than sending raw video straight to an API.
+
+### Why Did You Combine CV And LLM?
+
+CV is better for deterministic perception tasks like detection, tracking, and event extraction. LLMs are better for reasoning, summarization, and conversational explanations. Combining both gives you lower cost, clearer observability, and better engineering boundaries.
+
+### How Do You Handle Real-Time Video?
+
+The current repo is optimized for pre-recorded video, but the architecture is already modular. To support real-time streams, the ingestion layer can be swapped for a stream reader, tracking state can be kept per camera, and event outputs can be pushed to a queue or database without redesigning the entire system.
+
+## Additional Docs
+
+- [docs/SYSTEM_ARCHITECTURE.md](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/docs/SYSTEM_ARCHITECTURE.md)
+- [docs/INTERVIEW_GUIDE.md](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/docs/INTERVIEW_GUIDE.md)
 - [PROJECT_REVIEW.md](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/PROJECT_REVIEW.md)
 - [CCTV_AGENT_GUIDE.md](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/CCTV_AGENT_GUIDE.md)
-- [VIDEO_SUMMARIZER_GUIDE.md](/c:/Users/Alan_js/DEVELOPER/AI-KYRO/project/video-intelligence-agent/VIDEO_SUMMARIZER_GUIDE.md)
 
 ## Testing
 
 ```bash
-python -m compileall src tests main.py
 python -m pytest -q
 ```
