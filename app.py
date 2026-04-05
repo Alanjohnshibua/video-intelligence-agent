@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 
@@ -26,12 +27,14 @@ def main() -> None:
     outputs_dir = Path("outputs/lobby_demo")
     analysis_path = outputs_dir / "latest_analysis.json"
     events_path = outputs_dir / "events.json"
+    summary_path = outputs_dir / "daily_summary.txt"
 
     left, right = st.columns(2)
     with left:
         st.subheader("Operational Outputs")
         st.write(f"Analysis JSON: `{analysis_path}`")
         st.write(f"Event Log: `{events_path}`")
+        st.write(f"Summary Report: `{summary_path}`")
         if analysis_path.exists():
             st.success("Latest analysis artifact found.")
         else:
@@ -53,6 +56,26 @@ def main() -> None:
         "This system is not a thin Gemini wrapper. It produces structured CV evidence first "
         "and only then uses an LLM for reasoning over events."
     )
+
+    if events_path.exists():
+        st.subheader("Recent Events")
+        try:
+            events = json.loads(events_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            st.warning("Event log exists but could not be parsed.")
+        else:
+            for event in events[:5]:
+                st.code(
+                    (
+                        f"[{event.get('start_time', '--')}] "
+                        f"{event.get('person_id', 'unknown')} "
+                        f"{event.get('action', 'event')}"
+                    )
+                )
+
+    if summary_path.exists():
+        st.subheader("Latest Summary")
+        st.text(summary_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":  # pragma: no cover - UI entrypoint

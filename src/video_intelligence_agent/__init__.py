@@ -1,4 +1,5 @@
 from video_intelligence_agent.api import detect_faces, get_embedding, match_face, process_frame
+from video_intelligence_agent.agent import HybridVideoReasoningAgent
 from video_intelligence_agent.config import FaceIdentifierConfig
 from video_intelligence_agent.core import FaceIdentifier
 from video_intelligence_agent.cctv import (
@@ -14,13 +15,18 @@ from video_intelligence_agent.cctv_pipeline import (
     VideoProcessor,
     load_pipeline_config as load_modular_pipeline_config,
 )
+from video_intelligence_agent.event_engine import RuleEventEngine
+from video_intelligence_agent.ingestion import VideoIngestionService
 from video_intelligence_agent.models import BoundingBox, DetectedFace, MatchResult
+from video_intelligence_agent.preprocessing import MotionPreprocessingService
 from video_intelligence_agent.surveillance import (
     FaceSurveillanceAgent,
     SurveillanceRunResult,
     SurveillanceRuntimeConfig,
     load_runtime_config,
 )
+from video_intelligence_agent.tracking import MultiObjectTracker
+from video_intelligence_agent.video_processing import FrameExtractionService
 from video_intelligence_agent.video_scene_analyzer import (
     VideoSceneAnalyzer,
     VideoSceneAnalyzerError,
@@ -45,12 +51,18 @@ __all__ = [
     "FaceIdentifierConfig",
     "FaceSurveillanceAgent",
     "FaceIdentifierRecognizer",
+    "FrameExtractionService",
     "FootageQueryAgent",
+    "HybridVideoReasoningAgent",
     "MatchResult",
     "ModularPipelineRunResult",
+    "MotionPreprocessingService",
+    "MultiObjectTracker",
     "PipelineConfig",
+    "RuleEventEngine",
     "SurveillanceRunResult",
     "SurveillanceRuntimeConfig",
+    "VideoIngestionService",
     "VideoIntelligencePersonIdentifier",
     "VideoProcessor",
     "VideoSceneAnalyzer",
