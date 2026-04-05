@@ -1,0 +1,24 @@
+# Video Intelligence Agent CPU-friendly demo configuration
+project_name: Video Intelligence Agent
+camera_id: lobby-cam-01
+video_path: samples\1475699_People_Lifestyle_1280x720.mp4
+output_dir: outputs/lobby_demo
+database_path: data/embeddings.pkl
+unknown_dir: outputs/lobby_demo/unknown
+similarity_threshold: 0.4
+detector_backend: opencv
+embedding_model: ArcFace
+prefer_gpu: true
+tensorflow_memory_growth: true
+frame_step: 5
+motion_threshold: 0.002
+min_motion_area: 500
+inactivity_tolerance_frames: 2
+save_event_clips: true
+save_unknown_snapshots: true
+clip_fps: 6.0
+loitering_threshold_sec: 15.0
+walking_distance_px: 24.0
+border_margin_ratio: 0.12
+interaction_distance_px: 120.0
+unknown_person_label: Unknown Person

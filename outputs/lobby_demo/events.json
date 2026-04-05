@@ -1,0 +1,136 @@
+[
+  {
+    "event_id": "event-00001",
+    "person_id": "unknown_3",
+    "action": "entering",
+    "start_time": "00:00:03.600",
+    "end_time": "00:00:07.400",
+    "duration_seconds": 3.8,
+    "frame_index": 185,
+    "metadata": {
+      "known": false,
+      "identity_confidence": 0.0,
+      "start_zone": "edge",
+      "end_zone": "center"
+    },
+    "track_id": 3,
+    "clip_path": "outputs\\lobby_demo\\clips\\event-00001_track-0003.mp4"
+  },
+  {
+    "event_id": "event-00002",
+    "person_id": "unknown_3",
+    "action": "exiting",
+    "start_time": "00:00:03.600",
+    "end_time": "00:00:10.600",
+    "duration_seconds": 7.0,
+    "frame_index": 265,
+    "metadata": {
+      "known": false,
+      "identity_confidence": 0.0,
+      "start_zone": "edge",
+      "end_zone": "edge"
+    },
+    "track_id": 3,
+    "clip_path": "outputs\\lobby_demo\\clips\\event-00002_track-0003.mp4"
+  },
+  {
+    "event_id": "event-00003",
+    "person_id": "unknown_1",
+    "action": "loitering",
+    "start_time": "00:00:00.200",
+    "end_time": "00:00:15.600",
+    "duration_seconds": 15.4,
+    "frame_index": 390,
+    "metadata": {
+      "known": false,
+      "identity_confidence": 0.0,
+      "radius_px": 22.36
+    },
+    "track_id": 1,
+    "clip_path": "outputs\\lobby_demo\\clips\\event-00003_track-0001.mp4"
+  },
+  {
+    "event_id": "event-00004",
+    "person_id": "unknown_5",
+    "action": "entering",
+    "start_time": "00:00:15.400",
+    "end_time": "00:00:15.800",
+    "duration_seconds": 0.4,
+    "frame_index": 395,
+    "metadata": {
+      "known": false,
+      "identity_confidence": 0.0,
+      "start_zone": "edge",
+      "end_zone": "center"
+    },
+    "track_id": 5,
+    "clip_path": "outputs\\lobby_demo\\clips\\event-00004_track-0005.mp4"
+  },
+  {
+    "event_id": "event-00001",
+    "person_id": "unknown_3",
+    "action": "entering",
+    "start_time": "00:00:03.600",
+    "end_time": "00:00:07.400",
+    "duration_seconds": 3.8,
+    "frame_index": 185,
+    "metadata": {
+      "known": false,
+      "identity_confidence": 0.0,
+      "start_zone": "edge",
+      "end_zone": "center"
+    },
+    "track_id": 3,
+    "clip_path": "outputs\\lobby_demo\\clips\\event-00001_track-0003.mp4"
+  },
+  {
+    "event_id": "event-00002",
+    "person_id": "unknown_3",
+    "action": "exiting",
+    "start_time": "00:00:03.600",
+    "end_time": "00:00:10.600",
+    "duration_seconds": 7.0,
+    "frame_index": 265,
+    "metadata": {
+      "known": false,
+      "identity_confidence": 0.0,
+      "start_zone": "edge",
+      "end_zone": "edge"
+    },
+    "track_id": 3,
+    "clip_path": "outputs\\lobby_demo\\clips\\event-00002_track-0003.mp4"
+  },
+  {
+    "event_id": "event-00003",
+    "person_id": "unknown_1",
+    "action": "loitering",
+    "start_time": "00:00:00.200",
+    "end_time": "00:00:15.600",
+    "duration_seconds": 15.4,
+    "frame_index": 390,
+    "metadata": {
+      "known": false,
+      "identity_confidence": 0.0,
+      "radius_px": 22.36
+    },
+    "track_id": 1,
+    "clip_path": "outputs\\lobby_demo\\clips\\event-00003_track-0001.mp4"
+  },
+  {
+    "event_id": "event-00004",
+    "person_id": "unknown_5",
+    "action": "entering",
+    "start_time": "00:00:15.400",
+    "end_time": "00:00:15.800",
+    "duration_seconds": 0.4,
+    "frame_index": 395,
+    "metadata": {
+      "known": false,
+      "identity_confidence": 0.0,
+      "start_zone": "edge",
+      "end_zone": "center"
+    },
+    "track_id": 5,
+    "clip_path": "outputs\\lobby_demo\\clips\\event-00004_track-0005.mp4"
+  }
+]

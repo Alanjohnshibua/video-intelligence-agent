@@ -1,0 +1,7 @@
+CCTV Summary for samples\1475699_People_Lifestyle_1280x720.mp4
+Total activity duration: 19.4s across 1 event segments.
+People detected: 3 unique (0 known, 3 unknown).
+Alerts raised: 1 high, 0 medium, 0 low/info.
+Known individuals: none detected
+Key events:
+1. event-0001 | 2026-04-04T22:20:08 to 2026-04-04T22:20:27 | Category: suspicious_presence | Alert: high | People: Unknown Person, Unknown Person, Unknown Person | Actions: Unknown Person exiting, Unknown Person walking, people interacting, Unknown Person loitering

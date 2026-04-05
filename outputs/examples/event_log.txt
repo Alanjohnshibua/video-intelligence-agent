@@ -1,0 +1,4 @@
+[10:32:04 AM] ALERT=medium CATEGORY=unknown_person_detected CAMERA=lobby-cam-01 EVENT=event-0003 PERSON=Unknown Person
+[10:35:18 AM] ALERT=high CATEGORY=suspicious_presence CAMERA=lobby-cam-01 EVENT=event-0004 DETAIL=Unknown Person loitering near entrance for 21.4s
+[10:41:52 AM] ALERT=low CATEGORY=entry CAMERA=lobby-cam-01 EVENT=event-0005 PERSON=Alan DETAIL=Known employee entered north door
+[10:44:07 AM] ALERT=low CATEGORY=exit CAMERA=lobby-cam-01 EVENT=event-0006 PERSON=Alan DETAIL=Known employee exited north door

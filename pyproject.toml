@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "video-intelligence-agent"
+version = "0.1.0"
+description = "Local-first video intelligence toolkit for CCTV analysis, face recognition, event extraction, and summarization."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Alan" }
+]
+dependencies = [
+  "numpy>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+summary = [
+  "openai>=1.0.0",
+  "faster-whisper>=1.0.0",
+  "transformers>=4.44.0",
+  "accelerate>=0.33.0",
+]
+scene = [
+  "ultralytics>=8.3.0",
+  "huggingface-hub>=0.24.0",
+]
+vision = [
+  "opencv-python>=4.10.0",
+]
+models = [
+  "torch>=2.2.0",
+  "deepface>=0.0.93",
+]
+full = [
+  "opencv-python>=4.10.0",
+  "torch>=2.2.0",
+  "deepface>=0.0.93",
+  "ultralytics>=8.3.0",
+  "huggingface-hub>=0.24.0",
+]
+
+[project.scripts]
+video-intelligence-agent = "video_intelligence_agent.cli:main"
+via = "video_intelligence_agent.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
