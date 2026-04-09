@@ -2,52 +2,73 @@
 
 ## Executive View
 
-Video Intelligence Agent is a hybrid computer-vision and language-reasoning system for offline CCTV analysis. The system does not send raw video directly to an LLM. Instead, it extracts structured evidence with deterministic CV modules first, then uses an LLM only for high-level reasoning and natural-language summarization.
+Video Intelligence Agent is a hybrid CV + agentic reasoning system for CCTV analytics. The core principle is simple: perception happens locally first, and language reasoning happens later over structured evidence. This keeps the system inspectable, cost-aware, and production-friendly.
 
-## Production Pipeline
+## End-To-End Pipeline
 
 ```text
-Video Input
-  -> Frame Extraction
-  -> Motion Detection
-  -> Scene and Person Detection
-  -> Face Identification
-  -> Multi-Object Tracking
-  -> Event Extraction
-  -> Event Logging + Clip Export
-  -> Agent Reasoning
-  -> Summary Generation
+Video File / Webcam
+  -> Ingestion
+  -> Preprocessing
+  -> Person / Face Detection
+  -> Tracking
+  -> Event Engine
+  -> Event JSON + Clips + Debug Frames
+  -> Query Parsing + Time Filtering
+  -> Local Event Retrieval
+  -> Sarvam Reasoning
+  -> Summary / Chat Answer
 ```
 
 ## Module Mapping
 
-- `src/video_intelligence_agent/video_processing/`
-  Frame extraction and ingestion wrappers.
+- `src/video_intelligence_agent/ingestion/`
+  Video input adapters and replayable frame extraction.
+- `src/video_intelligence_agent/preprocessing/`
+  Motion detection and low-cost preprocessing before heavier inference.
 - `src/video_intelligence_agent/detection/`
-  Person detection and optional scene understanding.
+  Person detection and optional scene analysis interfaces.
 - `src/video_intelligence_agent/tracking/`
-  Lightweight tracking abstractions for track continuity.
-- `src/video_intelligence_agent/cctv_pipeline/core/`
-  Production pipeline orchestration, motion detection, tracking, recognition, and event logic.
-- `src/video_intelligence_agent/cctv_pipeline/services/`
-  Event logging and evidence clip generation.
+  Track lifecycle management and continuity abstraction.
+- `src/video_intelligence_agent/event_engine/`
+  Rule-based event extraction for entry, exit, and loitering.
+- `src/video_intelligence_agent/cctv_pipeline/`
+  Production pipeline orchestration, config, services, clips, and logging.
 - `src/video_intelligence_agent/agent/`
-  Hybrid reasoning layer that prepares structured evidence for Gemini or other LLMs.
-- `src/video_intelligence_agent/summarization/`
-  Final summarization utilities.
+  Query parsing, time-window resolution, event retrieval, Sarvam client, and controller.
+- `webcam_app/`
+  Live webcam recognition demo and CLI enrollment workflow.
 
-## Design Philosophy
+## Agent Query Flow
 
-- Run cheap deterministic modules first.
-- Preserve structured intermediate outputs.
-- Use the LLM for reasoning, not perception.
-- Keep every stage replaceable.
-- Default to CPU-friendly components and graceful degradation.
+```text
+User question
+  -> QueryIntent parser
+  -> Time window resolver
+  -> Local event filtering
+  -> Optional Sarvam call
+  -> Final answer + matching clips
+```
 
-## Why This Is More Than An API Wrapper
+This local-first query path is what removes the "wrapper" feel. The LLM is not parsing raw video and is not asked to search the whole event store blindly.
 
-- Motion detection reduces unnecessary inference before any model call.
-- YOLO-based person detection and tracking create measurable intermediate state.
-- Event extraction is rule-based and auditable.
-- Clips and JSON logs create operational artifacts.
-- The LLM receives already-structured events instead of raw unfiltered frames.
+## Design Principles
+
+- Do cheap deterministic work before expensive model calls.
+- Keep artifacts inspectable and reusable.
+- Make CV perception independent from language reasoning.
+- Support offline mode when the reasoning API is unavailable.
+- Prefer CPU-friendly defaults with optional heavier upgrades.
+
+## Operational Artifacts
+
+The pipeline can produce:
+
+- `events.json`
+- `latest_analysis.json`
+- `daily_summary.txt`
+- event clips
+- snapshots
+- annotated debug frames
+
+These outputs make the system useful even without the UI or the agent layer.

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "video-intelligence-agent"
 version = "0.1.0"
-description = "Local-first video intelligence toolkit for CCTV analysis, face recognition, event extraction, and summarization."
+description = "Hybrid CV + LLM video intelligence system for CCTV analysis, event extraction, reasoning, and summarization."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -40,12 +40,17 @@ models = [
 ui = [
   "streamlit>=1.35.0",
 ]
+agent = [
+  "sarvamai>=0.1.27",
+]
 full = [
   "opencv-python>=4.10.0",
   "torch>=2.2.0",
   "deepface>=0.0.93",
   "ultralytics>=8.3.0",
   "huggingface-hub>=0.24.0",
+  "streamlit>=1.35.0",
+  "sarvamai>=0.1.27",
 ]
 
 [project.scripts]
@@ -60,4 +65,3 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-

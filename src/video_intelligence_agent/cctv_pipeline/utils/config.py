@@ -29,7 +29,7 @@ class StorageConfig:
     save_unknown_clips: bool = True
     clip_seconds_before: float = 2.0
     clip_seconds_after: float = 2.0
-    clip_codec: str = "mp4v"
+    clip_codec: str = "avc1"
 
 
 @dataclass(slots=True)

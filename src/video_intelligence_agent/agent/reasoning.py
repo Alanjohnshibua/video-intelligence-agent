@@ -19,7 +19,7 @@ class HybridVideoReasoningAgent:
 
     The computer vision pipeline produces structured detections, tracks, and events.
     This agent turns that evidence into a concise prompt so an external model such as
-    Gemini can reason over events instead of raw frames.
+    Sarvam or another LLM can reason over events instead of raw frames.
     """
 
     result: PipelineRunResult
