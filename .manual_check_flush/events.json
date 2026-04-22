@@ -1,0 +1,21 @@
+[
+  {
+    "event_id": "event-00009",
+    "person_id": "unknown_13",
+    "action": "movement",
+    "start_time": "00:00:03.583",
+    "end_time": "00:00:05.583",
+    "duration_seconds": 2.0,
+    "frame_index": 335,
+    "metadata": {
+      "start_seconds": 3.583,
+      "end_seconds": 5.583,
+      "source_video_name": "sample.mp4",
+      "source_video_stem": "sample",
+      "source_video_path": "sample.mp4",
+      "source_video_label": "sample"
+    },
+    "track_id": 13,
+    "clip_path": "memory://sample__event-00009_track-0013"
+  }
+]

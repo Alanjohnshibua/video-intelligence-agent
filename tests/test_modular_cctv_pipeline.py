@@ -152,6 +152,35 @@ class StubEventLogic:
         return []
 
 
+class StubFlushEventLogic:
+    def reset(self) -> None:
+        return None
+
+    def update(
+        self,
+        *,
+        visible_tracks: list[TrackedPerson],
+        lost_tracks: list[TrackedPerson],
+        frame_shape: tuple[int, ...],
+    ) -> list[EventRecord]:
+        return []
+
+    def flush(self) -> list[EventRecord]:
+        return [
+            EventRecord(
+                event_id="event-00009",
+                person_id="unknown_13",
+                action="movement",
+                start_time="00:00:03.583",
+                end_time="00:00:05.583",
+                duration_seconds=2.0,
+                frame_index=335,
+                track_id=13,
+                metadata={"start_seconds": 3.583, "end_seconds": 5.583},
+            )
+        ]
+
+
 class StubClipManager:
     def __init__(self) -> None:
         self.saved_clips: list[str] = []
@@ -173,10 +202,13 @@ def test_load_pipeline_config_reads_face_and_debug_settings(tmp_path: Path) -> N
         "\n".join(
             [
                 "video_path: sample.mp4",
+                "video_library_dir: data/uploads",
+                "library_output_dir: outputs/library",
                 "database_path: data/embeddings.pkl",
                 "unknown_dir: outputs/unknown",
                 "similarity_threshold: 0.55",
                 "detection_confidence: 0.33",
+                "walking_distance_px: 18",
                 "debug_enabled: true",
                 "save_debug_frames: true",
                 "save_unknown_clips: false",
@@ -188,10 +220,13 @@ def test_load_pipeline_config_reads_face_and_debug_settings(tmp_path: Path) -> N
     config = load_pipeline_config(config_path)
 
     assert config.video_path == "sample.mp4"
+    assert str(config.video_library_dir) == "data/uploads"
+    assert str(config.library_output_dir) == "outputs/library"
     assert str(config.database_path) == "data/embeddings.pkl"
     assert str(config.unknown_dir) == "outputs/unknown"
     assert config.similarity_threshold == 0.55
     assert config.detection_confidence == 0.33
+    assert config.movement_min_distance_px == 18.0
     assert config.debug.enabled is True
     assert config.debug.save_frames is True
     assert config.storage.save_unknown_clips is False
@@ -201,6 +236,7 @@ def test_rule_based_event_detector_emits_entering_loitering_and_exiting() -> Non
     detector = RuleBasedEventDetector(
         loitering_seconds=2.0,
         loitering_radius_px=20.0,
+        movement_min_distance_px=15.0,
         border_margin_ratio=0.1,
     )
 
@@ -296,6 +332,57 @@ def test_rule_based_event_detector_emits_entering_loitering_and_exiting() -> Non
     assert [event.action for event in events] == ["exiting"]
 
 
+def test_rule_based_event_detector_flush_emits_movement_for_completed_track() -> None:
+    detector = RuleBasedEventDetector(
+        loitering_seconds=20.0,
+        loitering_radius_px=20.0,
+        movement_min_distance_px=10.0,
+        border_margin_ratio=0.1,
+    )
+
+    frame_shape = (100, 100, 3)
+    detector.update(
+        visible_tracks=[
+            TrackedPerson(
+                track_id=1,
+                bbox=(10, 30, 20, 70),
+                confidence=0.9,
+                first_seen_frame=0,
+                last_seen_frame=0,
+                first_seen_seconds=0.0,
+                last_seen_seconds=0.0,
+                identity="unknown_1",
+            )
+        ],
+        lost_tracks=[],
+        frame_shape=frame_shape,
+    )
+    events = detector.update(
+        visible_tracks=[
+            TrackedPerson(
+                track_id=1,
+                bbox=(50, 30, 70, 70),
+                confidence=0.9,
+                first_seen_frame=0,
+                last_seen_frame=4,
+                first_seen_seconds=0.0,
+                last_seen_seconds=4.0,
+                identity="unknown_1",
+            )
+        ],
+        lost_tracks=[],
+        frame_shape=frame_shape,
+    )
+    assert events == []
+
+    events = detector.flush()
+
+    assert [event.action for event in events] == ["movement"]
+    assert events[0].metadata["displacement_px"] > 10.0
+    assert events[0].metadata["start_seconds"] == 0.0
+    assert events[0].metadata["end_seconds"] == 4.0
+
+
 def test_video_processor_logs_detector_failures_and_keeps_running(tmp_path: Path) -> None:
     config = PipelineConfig(
         video_path="sample.mp4",
@@ -325,9 +412,51 @@ def test_video_processor_logs_detector_failures_and_keeps_running(tmp_path: Path
 
     result = processor.process_video()
     events_on_disk = json.loads((tmp_path / "events.json").read_text(encoding="utf-8"))
+    analysis_on_disk = json.loads((tmp_path / "latest_analysis.json").read_text(encoding="utf-8"))
+    summary_on_disk = (tmp_path / "daily_summary.txt").read_text(encoding="utf-8")
 
     assert result.stats.errors_encountered == 1
     assert result.stats.events_detected == 1
     assert result.stats.processed_frames == 1
     assert events_on_disk[0]["action"] == "entering"
+    assert events_on_disk[0]["metadata"]["source_video_name"] == "sample.mp4"
+    assert events_on_disk[0]["metadata"]["source_video_label"] == "sample"
+    assert events_on_disk[0]["clip_path"].endswith("sample__event-00001_track-0001")
+    assert analysis_on_disk["stats"]["events_detected"] == 1
+    assert analysis_on_disk["artifacts"]["analysis_path"].endswith("latest_analysis.json")
+    assert "Video Intelligence Agent Summary" in summary_on_disk
+    assert "alice - entering (sample.mp4)" in summary_on_disk
     assert processor.query_events(action="entering")[0]["person_id"] == "alice"
+
+
+def test_video_processor_assigns_clips_to_flush_events(tmp_path: Path) -> None:
+    config = PipelineConfig(
+        video_path="sample.mp4",
+        storage=StorageConfig(
+            output_dir=tmp_path,
+            event_filename="events.json",
+            save_event_clips=True,
+            save_unknown_clips=True,
+            clip_seconds_before=1.0,
+            clip_seconds_after=1.0,
+            clip_codec="mp4v",
+        ),
+    )
+
+    processor = VideoProcessor(
+        config=config,
+        motion_detector=StubMotionDetector(),
+        detector=StubDetector(),
+        tracker=StubTracker(),
+        recognizer=StubRecognizer(),
+        event_logic=StubFlushEventLogic(),
+        event_logger=EventLoggerService(tmp_path / "events.json"),
+        clip_manager=StubClipManager(),
+        video_source_cls=StubVideoSource,
+    )
+
+    result = processor.process_video()
+
+    assert result.stats.events_detected == 1
+    assert result.events[0].action == "movement"
+    assert result.events[0].clip_path == "memory://sample__event-00009_track-0013"

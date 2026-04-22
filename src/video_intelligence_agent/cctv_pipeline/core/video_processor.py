@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from video_intelligence_agent.cctv_pipeline.core.detector import YOLOPersonDetector
 from video_intelligence_agent.cctv_pipeline.core.event_logic import RuleBasedEventDetector
@@ -174,12 +176,24 @@ class VideoProcessor:
         self.event_logic = event_logic or RuleBasedEventDetector(
             loitering_seconds=config.loitering_seconds,
             loitering_radius_px=config.loitering_radius_px,
+            movement_min_distance_px=config.movement_min_distance_px,
             border_margin_ratio=config.border_margin_ratio,
         )
         self.event_logger = event_logger or EventLoggerService(config.resolved_events_path())
         self.clip_manager = clip_manager
+        self._current_video_labels: dict[str, str] = {
+            "source_video_name": "",
+            "source_video_stem": "",
+            "source_video_path": "",
+            "source_video_label": "",
+        }
 
-    def process_video(self, video_path: str | None = None) -> PipelineRunResult:
+    def process_video(
+        self,
+        video_path: str | None = None,
+        *,
+        progress_callback: Callable[[dict[str, object]], None] | None = None,
+    ) -> PipelineRunResult:
         subject = video_path or self.config.video_path
         if not subject:
             raise VideoInputError(
@@ -189,6 +203,7 @@ class VideoProcessor:
 
         source = self.video_source_cls(subject)
         metadata = source.metadata()
+        self._current_video_labels = _build_video_labels(metadata.video_path)
         if metadata.total_frames == 0:
             source.close()
             raise VideoInputError(
@@ -198,6 +213,14 @@ class VideoProcessor:
             )
 
         self.logger.info("Starting CCTV analysis for %s", metadata.video_path)
+        self._emit_progress(
+            progress_callback,
+            metadata=metadata,
+            progress=0.0,
+            frame_index=0,
+            message="Initializing analysis...",
+            stats=None,
+        )
         if not self.detector.ready and self.detector.load_error is not None:
             log_exception(
                 self.logger,
@@ -223,38 +246,76 @@ class VideoProcessor:
         self.clip_manager = clip_manager
 
         stats = PipelineStats()
+        last_reported_percent = -1
         try:
             for packet in source.iter_frames(frame_step=self.config.frame_step):
                 stats.total_frames_read += 1
                 self._process_packet(packet, stats=stats)
+                if metadata.total_frames > 0:
+                    progress = min((packet.frame_index + 1) / metadata.total_frames, 1.0)
+                else:
+                    progress = 0.0
+                percent = int(progress * 100)
+                if percent != last_reported_percent:
+                    self._emit_progress(
+                        progress_callback,
+                        metadata=metadata,
+                        progress=progress,
+                        frame_index=packet.frame_index,
+                        message=(
+                            f"Analyzing video... {percent}% "
+                            f"(events={stats.events_detected}, detections={stats.detections})"
+                        ),
+                        stats=stats,
+                    )
+                    last_reported_percent = percent
         finally:
             source.close()
 
         try:
             trailing_events = self.event_logic.flush()
             if trailing_events:
-                self.event_logger.extend(trailing_events)
-                stats.events_detected += len(trailing_events)
+                self._persist_events(
+                    trailing_events,
+                    frame_index=trailing_events[-1].frame_index if trailing_events else None,
+                    stats=stats,
+                )
         except BaseAppError as exc:
             log_exception(self.logger, exc, error_tracker=self.error_tracker)
 
-        stats.errors_encountered = self.error_tracker.count
+        artifacts = PipelineArtifacts(
+            events_path=self.config.resolved_events_path(),
+            clips_dir=self.config.resolved_clips_dir(),
+            analysis_path=self.config.resolved_analysis_path(),
+            summary_path=self.config.resolved_summary_path(),
+            debug_dir=self.config.resolved_debug_dir() if self.config.debug.enabled else None,
+        )
         result = PipelineRunResult(
             metadata=metadata,
-            artifacts=PipelineArtifacts(
-                events_path=self.config.resolved_events_path(),
-                clips_dir=self.config.resolved_clips_dir(),
-                debug_dir=self.config.resolved_debug_dir() if self.config.debug.enabled else None,
-            ),
+            artifacts=artifacts,
             events=self.event_logger.events(),
             stats=stats,
-            errors=self.error_tracker.to_list(),
+            errors=[],
         )
+        self._write_run_artifacts(result)
+        stats.errors_encountered = self.error_tracker.count
+        result.errors = self.error_tracker.to_list()
         self.logger.info(
             "Processing complete | frames=%s | events=%s | errors=%s",
             stats.processed_frames,
             stats.events_detected,
             stats.errors_encountered,
+        )
+        self._emit_progress(
+            progress_callback,
+            metadata=metadata,
+            progress=1.0,
+            frame_index=metadata.total_frames,
+            message=(
+                f"Analysis complete. Events={stats.events_detected}, "
+                f"processed_frames={stats.processed_frames}, errors={stats.errors_encountered}"
+            ),
+            stats=stats,
         )
         return result
 
@@ -384,25 +445,7 @@ class VideoProcessor:
             )
             if not events:
                 return
-            for event in events:
-                if (
-                    event.person_id.startswith(f"{self.config.unknown_label_prefix}_")
-                    and self.config.storage.save_unknown_clips
-                ) or self.config.storage.save_event_clips:
-                    clip_path = self.clip_manager.save_clip_from_buffer(
-                        f"{event.event_id}_track-{event.track_id or 0:04d}"
-                    )
-                    if clip_path is not None:
-                        event.clip_path = clip_path
-            self.event_logger.extend(events)
-            stats.events_detected += len(events)
-            for event in events:
-                self.logger.info(
-                    "Event detected | frame=%s | action=%s | person=%s",
-                    frame_index,
-                    event.action,
-                    event.person_id,
-                )
+            self._persist_events(events, frame_index=frame_index, stats=stats)
         except BaseAppError as exc:
             log_exception(self.logger, exc, error_tracker=self.error_tracker)
         except Exception as exc:
@@ -489,3 +532,158 @@ class VideoProcessor:
                 1,
             )
         return frame
+
+    def _write_run_artifacts(self, result: PipelineRunResult) -> None:
+        """Persist the full run payload and a human-readable summary beside events.json."""
+        analysis_path = result.artifacts.analysis_path
+        summary_path = result.artifacts.summary_path
+        if analysis_path is None or summary_path is None:
+            return
+
+        try:
+            analysis_path.parent.mkdir(parents=True, exist_ok=True)
+            analysis_path.write_text(
+                json.dumps(result.to_dict(), indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            summary_path.write_text(
+                self._build_summary_text(result) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            wrapped = EventStorageError(
+                "Failed to persist pipeline analysis artifacts.",
+                module="video_processor",
+                cause=exc,
+            )
+            log_exception(self.logger, wrapped, error_tracker=self.error_tracker)
+
+    def _build_summary_text(self, result: PipelineRunResult) -> str:
+        """Create a short operator-friendly text summary for the latest run."""
+        lines = [
+            "Video Intelligence Agent Summary",
+            f"Video: {result.metadata.video_path}",
+            f"Frames processed: {result.stats.processed_frames} / {result.stats.total_frames_read}",
+            f"Motion frames: {result.stats.motion_frames}",
+            f"Detections: {result.stats.detections}",
+            f"Tracked objects: {result.stats.tracked_objects}",
+            f"Events detected: {result.stats.events_detected}",
+            f"Errors encountered: {self.error_tracker.count}",
+        ]
+        if result.events:
+            lines.append("")
+            lines.append("Event timeline:")
+            for event in result.events:
+                lines.append(
+                    f"[{event.start_time}] {event.person_id} - {event.action}"
+                    f" ({event.metadata.get('source_video_name', 'unknown video')})"
+                )
+        else:
+            lines.append("")
+            lines.append("No events were detected in this run.")
+        return "\n".join(lines)
+
+    def _build_clip_basename(self, event: EventRecord) -> str:
+        """Create a clip filename that is traceable back to the source CCTV video."""
+        source_label = self._current_video_labels.get("source_video_label") or "video"
+        return f"{source_label}__{event.event_id}_track-{event.track_id or 0:04d}"
+
+    def _save_event_clip(self, event: EventRecord, clip_basename: str) -> str | None:
+        """Save a clip for an event, preferring full event-range extraction from source video."""
+        start_seconds = float((event.metadata or {}).get("start_seconds", 0.0))
+        end_seconds = float((event.metadata or {}).get("end_seconds", start_seconds))
+        source_video_path = self._current_video_labels.get("source_video_path")
+        if source_video_path and hasattr(self.clip_manager, "save_clip_for_time_range"):
+            try:
+                return self.clip_manager.save_clip_for_time_range(
+                    video_path=source_video_path,
+                    clip_name=clip_basename,
+                    start_seconds=start_seconds,
+                    end_seconds=end_seconds,
+                    seconds_before=self.config.storage.clip_seconds_before,
+                    seconds_after=self.config.storage.clip_seconds_after,
+                )
+            except BaseAppError:
+                raise
+            except Exception as exc:
+                wrapped = EventStorageError(
+                    "Failed to save full event clip from source video.",
+                    module="clip_manager",
+                    cause=exc,
+                )
+                log_exception(self.logger, wrapped, error_tracker=self.error_tracker)
+        return self.clip_manager.save_clip_from_buffer(clip_basename)
+
+    def _persist_events(
+        self,
+        events: list[EventRecord],
+        *,
+        frame_index: int | None,
+        stats: PipelineStats,
+    ) -> None:
+        """Attach metadata, save clips, persist events, and log them consistently."""
+        if not events:
+            return
+        for event in events:
+            event.metadata.update(self._current_video_labels)
+            if (
+                event.person_id.startswith(f"{self.config.unknown_label_prefix}_")
+                and self.config.storage.save_unknown_clips
+            ) or self.config.storage.save_event_clips:
+                clip_basename = self._build_clip_basename(event)
+                clip_path = self._save_event_clip(event, clip_basename)
+                if clip_path is not None:
+                    event.clip_path = clip_path
+        self.event_logger.extend(events)
+        stats.events_detected += len(events)
+        for event in events:
+            self.logger.info(
+                "Event detected | frame=%s | action=%s | person=%s",
+                frame_index if frame_index is not None else event.frame_index,
+                event.action,
+                event.person_id,
+            )
+
+    def _emit_progress(
+        self,
+        callback: Callable[[dict[str, object]], None] | None,
+        *,
+        metadata: VideoMetadata,
+        progress: float,
+        frame_index: int,
+        message: str,
+        stats: PipelineStats | None,
+    ) -> None:
+        """Send a lightweight progress payload to optional UI/reporting integrations."""
+        if callback is None:
+            return
+        payload: dict[str, object] = {
+            "video_path": metadata.video_path,
+            "progress": max(0.0, min(progress, 1.0)),
+            "percent": int(max(0.0, min(progress, 1.0)) * 100),
+            "frame_index": frame_index,
+            "total_frames": metadata.total_frames,
+            "message": message,
+        }
+        if stats is not None:
+            payload["stats"] = stats.to_dict()
+        callback(payload)
+
+
+def _build_video_labels(video_path: str | Path) -> dict[str, str]:
+    """Build stable source-video labels for events, clips, and operator views."""
+    path = Path(video_path)
+    stem = path.stem or "video"
+    source_label = _sanitize_video_label(stem)
+    return {
+        "source_video_name": path.name or str(path),
+        "source_video_stem": stem,
+        "source_video_path": str(path),
+        "source_video_label": source_label,
+    }
+
+
+def _sanitize_video_label(value: str) -> str:
+    """Convert a video name into a filesystem-safe label."""
+    sanitized = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-._")
+    return sanitized or "video"

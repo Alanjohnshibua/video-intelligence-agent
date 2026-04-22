@@ -196,11 +196,15 @@ class PipelineArtifacts:
 
     events_path: Path
     clips_dir: Path
+    analysis_path: Path | None = None
+    summary_path: Path | None = None
     debug_dir: Path | None = None
 
     def to_dict(self) -> dict[str, str | None]:
         return {
             "events_path": str(self.events_path),
             "clips_dir": str(self.clips_dir),
+            "analysis_path": str(self.analysis_path) if self.analysis_path is not None else None,
+            "summary_path": str(self.summary_path) if self.summary_path is not None else None,
             "debug_dir": str(self.debug_dir) if self.debug_dir is not None else None,
         }

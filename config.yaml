@@ -1,7 +1,9 @@
 # Video Intelligence Agent CPU-friendly demo configuration
 project_name: Video Intelligence Agent
 camera_id: lobby-cam-01
-video_path: samples\1475699_People_Lifestyle_1280x720.mp4
+video_path: samples/1475699_People_Lifestyle_1280x720.mp4
+video_library_dir: data\clip_library\uploads
+library_output_dir: outputs\clip_library
 output_dir: outputs/lobby_demo
 database_path: data/embeddings.pkl
 unknown_dir: outputs/lobby_demo/unknown

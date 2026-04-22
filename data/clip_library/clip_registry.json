@@ -1,0 +1,14 @@
+[
+  {
+    "clip_id": "example-street-20260416-120744-14716853-3840-2160-60fps",
+    "camera_name": "example_street",
+    "display_name": "14716853_3840_2160_60fps.mp4",
+    "file_path": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\data\\clip_library\\uploads\\example-street\\example-street-20260416-120744-14716853-3840-2160-60fps.mp4",
+    "uploaded_at": "2026-04-16T12:07:44",
+    "file_size_bytes": 18024931,
+    "processed_at": "2026-04-16T12:10:00",
+    "summary_text": "CCTV Summary for C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\data\\clip_library\\uploads\\example-street\\example-street-20260416-120744-14716853-3840-2160-60fps.mp4\nTotal activity duration: 6.2s across 3 event segments.\nPeople detected: 0 unique (0 known, 0 unknown).\nAlerts raised: 0 high, 0 medium, 3 low/info.\nKnown individuals: none detected\nKey events:\n1. event-0001 | 2026-04-16T12:07:44 to 2026-04-16T12:07:49 | Category: routine_motion | Alert: info | People: motion only | Actions: motion detected\n2. event-0002 | 2026-04-16T12:07:50 to 2026-04-16T12:07:50 | Category: routine_motion | Alert: info | People: motion only | Actions: motion detected\n3. event-0003 | 2026-04-16T12:07:50 to 2026-04-16T12:07:51 | Category: routine_motion | Alert: info | People: motion only | Actions: motion detected",
+    "analysis_path": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\outputs\\clip_library\\example-street-20260416-120744-14716853-3840-2160-60fps\\latest_analysis.json",
+    "events_path": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\outputs\\clip_library\\example-street-20260416-120744-14716853-3840-2160-60fps\\events.json"
+  }
+]

@@ -81,6 +81,7 @@ class AgentController:
 
         try:
             matched = self._retriever.filter(intent, window)
+            matched = self._retriever.ensure_clips(matched)
         except (ValueError, OSError) as exc:
             error_msg = f"Could not load event data: {exc}"
             logger.error(error_msg)
@@ -188,9 +189,12 @@ def _format_events_locally(events: list[dict[str, Any]], query: str, intent: Que
         end = event.get("end_time", "--")
         duration = event.get("duration_seconds", event.get("duration", "--"))
         clip = event.get("clip_path")
+        metadata = event.get("metadata", {}) or {}
+        source_video = metadata.get("source_video_name", "unknown video")
         line = f"  {i}. [{start} -> {end}] {pid} - {action}"
         if isinstance(duration, (int, float)):
             line += f" ({duration:.1f}s)"
+        line += f"\n     Source video: {source_video}"
         if clip:
             line += f"\n     Clip: {clip}"
         lines.append(line)
@@ -201,6 +205,7 @@ def _summarise_events_locally(events: list[dict[str, Any]], query: str) -> str:
     """Generate a concise overview for broad 'what happened' style questions."""
     actions: dict[str, int] = {}
     people: set[str] = set()
+    source_videos: set[str] = set()
     start_times: list[str] = []
     end_times: list[str] = []
 
@@ -208,6 +213,8 @@ def _summarise_events_locally(events: list[dict[str, Any]], query: str) -> str:
         action = str(event.get("action", "unknown"))
         actions[action] = actions.get(action, 0) + 1
         people.add(str(event.get("person_id", "unknown")))
+        metadata = event.get("metadata", {}) or {}
+        source_videos.add(str(metadata.get("source_video_name", "unknown video")))
         if event.get("start_time"):
             start_times.append(str(event["start_time"]))
         if event.get("end_time"):
@@ -217,10 +224,12 @@ def _summarise_events_locally(events: list[dict[str, Any]], query: str) -> str:
     first_seen = min(start_times) if start_times else "--"
     last_seen = max(end_times) if end_times else "--"
     ordered_people = ", ".join(sorted(people))
+    ordered_sources = ", ".join(sorted(source_videos))
 
     lines = [
         f"Here is a summary for \"{query}\":",
         f"- Total events: {len(events)}",
+        f"- Source videos: {ordered_sources}",
         f"- People involved: {ordered_people}",
         f"- Activity breakdown: {ordered_actions}",
         f"- Time span covered: {first_seen} to {last_seen}",
@@ -234,7 +243,8 @@ def _summarise_events_locally(events: list[dict[str, Any]], query: str) -> str:
                 "  "
                 f"[{event.get('start_time', '--')}] "
                 f"{event.get('person_id', 'unknown')} "
-                f"{event.get('action', 'unknown')}"
+                f"{event.get('action', 'unknown')} "
+                f"on {((event.get('metadata', {}) or {}).get('source_video_name', 'unknown video'))}"
             )
 
     return "\n".join(lines)

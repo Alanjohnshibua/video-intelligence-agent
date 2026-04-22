@@ -1,0 +1,20 @@
+[
+  {
+    "event_id": "event-00001",
+    "person_id": "alice",
+    "action": "entering",
+    "start_time": "00:00:02.000",
+    "end_time": "00:00:02.000",
+    "duration_seconds": 0.0,
+    "frame_index": 2,
+    "metadata": {
+      "known": true,
+      "source_video_name": "sample.mp4",
+      "source_video_stem": "sample",
+      "source_video_path": "sample.mp4",
+      "source_video_label": "sample"
+    },
+    "track_id": 1,
+    "clip_path": "memory://sample__event-00001_track-0001"
+  }
+]

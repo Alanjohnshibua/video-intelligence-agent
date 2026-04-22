@@ -9,8 +9,11 @@ Features:
 
 from __future__ import annotations
 
+from dataclasses import replace
+from datetime import datetime
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -18,6 +21,129 @@ ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+
+
+def _build_face_identifier(config):
+    """Best-effort face identifier construction for Streamlit-triggered runs."""
+    try:
+        from video_intelligence_agent.config import FaceIdentifierConfig
+        from video_intelligence_agent.core import FaceIdentifier
+    except Exception as exc:
+        return None, (
+            "Face recognition dependencies are unavailable. People will be labeled as unknown. "
+            f"reason={exc}"
+        )
+
+    try:
+        identifier = FaceIdentifier(
+            FaceIdentifierConfig(
+                database_path=config.database_path,
+                unknown_dir=config.unknown_dir,
+                similarity_threshold=config.similarity_threshold,
+                detector_backend=config.detector_backend,
+                embedding_model=config.embedding_model,
+                prefer_gpu=config.prefer_gpu,
+                tensorflow_memory_growth=config.tensorflow_memory_growth,
+            )
+        )
+        return identifier, ""
+    except Exception as exc:
+        return None, (
+            "Face recognition failed to initialize. People will be labeled as unknown. "
+            f"reason={exc}"
+        )
+
+
+def _prepare_run_config(config, *, video_path: str, output_dir: Path, debug_enabled: bool):
+    """Prepare a per-video config so each upload writes to its own artifact folder."""
+    updated = replace(
+        config,
+        video_path=video_path,
+        storage=replace(config.storage, output_dir=output_dir),
+    )
+    if debug_enabled:
+        updated = replace(
+            updated,
+            debug=replace(updated.debug, enabled=True, save_frames=True, draw_boxes=True),
+        )
+    return updated
+
+
+def _run_analysis_for_video(
+    *,
+    base_config,
+    video_path: Path,
+    output_dir: Path,
+    debug_enabled: bool,
+    progress_callback=None,
+) -> dict[str, object]:
+    """Run the CCTV pipeline for a selected uploaded video and return a compact status payload."""
+    from video_intelligence_agent.cctv_pipeline import VideoProcessor
+
+    run_config = _prepare_run_config(
+        base_config,
+        video_path=str(video_path),
+        output_dir=output_dir,
+        debug_enabled=debug_enabled,
+    )
+    face_identifier, face_warning = _build_face_identifier(run_config)
+    processor = VideoProcessor(config=run_config, face_identifier=face_identifier)
+    result = processor.process_video(progress_callback=progress_callback)
+    return {
+        "video_path": str(video_path),
+        "output_dir": str(output_dir),
+        "events_detected": result.stats.events_detected,
+        "events_path": str(result.artifacts.events_path),
+        "analysis_path": str(result.artifacts.analysis_path) if result.artifacts.analysis_path else "",
+        "face_warning": face_warning,
+    }
+
+
+def _sanitize_upload_name(value: str) -> str:
+    """Convert a user-provided name into a filesystem-safe label."""
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-._")
+    return cleaned or "item"
+
+
+def _save_uploaded_video_file(*, uploads_root: Path, uploaded_file) -> Path:
+    """Persist a Streamlit-uploaded video into the project upload library."""
+    original_name = Path(uploaded_file.name).name
+    stem = _sanitize_upload_name(Path(original_name).stem)
+    suffix = Path(original_name).suffix.lower() or ".mp4"
+    folder = uploads_root / stem
+    folder.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    target = folder / f"{stem}-{timestamp}{suffix}"
+    target.write_bytes(uploaded_file.getbuffer())
+    return target
+
+
+def _enroll_known_person_from_upload(*, config, person_name: str, uploaded_image) -> dict[str, object]:
+    """Save an uploaded image into data and enroll the person into the embeddings store."""
+    from video_intelligence_agent.core import FaceIdentifier
+    from video_intelligence_agent.image_io import load_image
+
+    safe_name = _sanitize_upload_name(person_name)
+    gallery_dir = ROOT / "data" / "known_people" / safe_name
+    gallery_dir.mkdir(parents=True, exist_ok=True)
+
+    original_name = Path(uploaded_image.name).name
+    suffix = Path(original_name).suffix.lower() or ".jpg"
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    image_path = gallery_dir / f"{safe_name}-{timestamp}{suffix}"
+    image_path.write_bytes(uploaded_image.getbuffer())
+
+    identifier, warning = _build_face_identifier(config)
+    if identifier is None:
+        raise RuntimeError(warning or "Face identifier could not be initialized.")
+
+    result = identifier.add_person(
+        person_name,
+        load_image(image_path),
+        source_image=image_path,
+    )
+    result["saved_image"] = str(image_path)
+    return result
 
 
 def main() -> None:
@@ -116,10 +242,21 @@ def main() -> None:
     st.caption("Hybrid CCTV analytics | CV pipeline first | Sarvam reasoning second")
     st.markdown("---")
 
-    outputs_dir = ROOT / "outputs" / "lobby_demo"
-    analysis_path = outputs_dir / "latest_analysis.json"
-    events_path = outputs_dir / "events.json"
-    summary_path = outputs_dir / "daily_summary.txt"
+    from video_intelligence_agent.cctv_pipeline import load_pipeline_config
+    from video_intelligence_agent.video_library import discover_video_records
+
+    config = load_pipeline_config(ROOT / "config.yaml")
+    library_dir = config.resolved_video_library_dir()
+    library_output_dir = config.resolved_library_output_dir()
+    discovered_videos = discover_video_records(library_dir, library_output_dir)
+    analyzed_videos = [record for record in discovered_videos if (record.output_dir / "events.json").exists()]
+
+    legacy_output_dir = ROOT / "outputs" / "lobby_demo"
+    legacy_events_path = legacy_output_dir / "events.json"
+    if legacy_events_path.exists():
+        selected_record_labels = ["Legacy sample output"] + [record.display_name for record in discovered_videos]
+    else:
+        selected_record_labels = [record.display_name for record in discovered_videos]
 
     with st.sidebar:
         st.markdown("### Agent Configuration")
@@ -140,13 +277,77 @@ def main() -> None:
         )
 
         st.markdown("---")
-        st.markdown("### Event Data")
-        custom_events = st.text_input(
-            "Events JSON path",
-            value=str(events_path),
-            help="Path to the events.json produced by the CCTV pipeline.",
+        st.markdown("### Active Video")
+        if not selected_record_labels:
+            st.markdown(
+                '<span class="status-off">OFF: no analyzed videos found yet</span>',
+                unsafe_allow_html=True,
+            )
+            selected_video_label = ""
+        else:
+            selected_video_label = st.selectbox(
+                "Select CCTV video",
+                selected_record_labels,
+                index=0,
+                help="The agent, dashboard, and clip viewer will stay scoped to this video.",
+            )
+
+        selected_record = next(
+            (record for record in discovered_videos if record.display_name == selected_video_label),
+            None,
         )
-        selected_events_path = Path(custom_events)
+        if selected_video_label == "Legacy sample output":
+            outputs_dir = legacy_output_dir
+            active_video_display = "samples/legacy output"
+        elif selected_record is not None:
+            outputs_dir = selected_record.output_dir
+            active_video_display = selected_record.display_name
+        else:
+            outputs_dir = legacy_output_dir
+            active_video_display = "no active video"
+
+        analysis_path = outputs_dir / "latest_analysis.json"
+        events_path = outputs_dir / "events.json"
+        summary_path = outputs_dir / "daily_summary.txt"
+
+        if selected_record is not None:
+            st.caption(f"Active source: `{selected_record.video_path}`")
+        elif selected_video_label == "Legacy sample output":
+            st.caption("Active source: legacy sample pipeline output")
+        else:
+            st.caption("Run an analysis first to activate a video context.")
+
+        analyze_debug = st.checkbox(
+            "Enable debug artifacts for new analysis",
+            value=False,
+            help="When enabled, the pipeline saves annotated debug frames for the selected video.",
+        )
+        analyze_selected_btn = st.button(
+            "Analyze selected video",
+            disabled=selected_record is None,
+            help="Run the CCTV pipeline for the selected uploaded video and refresh the agent context.",
+        )
+
+        st.markdown("---")
+        st.markdown("### Event Data")
+        manual_override = st.checkbox(
+            "Use manual events.json override",
+            value=False,
+            help="Advanced option. Leave this off to keep the agent scoped to the selected video.",
+        )
+        if manual_override:
+            custom_events = st.text_input(
+                "Events JSON path",
+                value=str(events_path),
+                help="Advanced override for the events.json produced by the CCTV pipeline.",
+            )
+            selected_events_path = Path(custom_events)
+            st.markdown(
+                '<span class="status-warn">WARN: manual override is active, so the agent may not match the selected video</span>',
+                unsafe_allow_html=True,
+            )
+        else:
+            selected_events_path = events_path
 
         if selected_events_path.exists():
             try:
@@ -183,6 +384,109 @@ def main() -> None:
         ]:
             st.markdown(f"- *{example}*")
 
+        if discovered_videos:
+            st.markdown("---")
+            st.markdown("### Uploaded Video Library")
+            for record in discovered_videos:
+                status = "analyzed" if (record.output_dir / "events.json").exists() else "not analyzed"
+                st.markdown(f"- `{record.display_name}` ({status})")
+
+        st.markdown("---")
+        st.markdown("### Add New Video Clip")
+        uploaded_video = st.file_uploader(
+            "Upload CCTV video",
+            type=["mp4", "mov", "avi", "mkv", "webm", "m4v"],
+            help="This saves the clip into data/clip_library/uploads so it can be analyzed from the app.",
+            key="video_upload",
+        )
+        upload_video_btn = st.button(
+            "Save uploaded video",
+            disabled=uploaded_video is None,
+            help="Store the uploaded video in the project library.",
+        )
+
+        st.markdown("---")
+        st.markdown("### Add Known Person")
+        known_person_name = st.text_input(
+            "Person name",
+            value="",
+            help="This name will be stored in the embeddings database for face recognition.",
+        )
+        known_person_image = st.file_uploader(
+            "Upload face image",
+            type=["jpg", "jpeg", "png", "bmp", "webp"],
+            help="Use a clear front-facing image for best enrollment quality.",
+            key="known_person_upload",
+        )
+        enroll_person_btn = st.button(
+            "Enroll known person",
+            disabled=not known_person_name.strip() or known_person_image is None,
+            help="Save the source image under data/known_people and add the face embedding to the database.",
+        )
+
+    if analyze_selected_btn and selected_record is not None:
+        try:
+            progress_text = st.empty()
+            progress_bar = st.progress(0)
+
+            def _on_analysis_progress(payload: dict[str, object]) -> None:
+                percent = int(payload.get("percent", 0) or 0)
+                message = str(payload.get("message", "Analyzing video..."))
+                progress_bar.progress(min(max(percent, 0), 100))
+                progress_text.caption(f"{message} | analyzed={percent}%")
+
+            progress_text.caption(f"Starting analysis for {selected_record.display_name} | analyzed=0%")
+            analysis_status = _run_analysis_for_video(
+                base_config=config,
+                video_path=selected_record.video_path,
+                output_dir=selected_record.output_dir,
+                debug_enabled=analyze_debug,
+                progress_callback=_on_analysis_progress,
+            )
+            progress_bar.progress(100)
+            progress_text.caption(
+                f"Analysis complete for {selected_record.display_name} | analyzed=100%"
+            )
+            st.cache_resource.clear()
+            st.session_state["analysis_notice"] = (
+                f"Analysis complete for {selected_record.display_name}. "
+                f"Events detected: {analysis_status['events_detected']}"
+            )
+            if analysis_status["face_warning"]:
+                st.session_state["analysis_warning"] = str(analysis_status["face_warning"])
+            else:
+                st.session_state.pop("analysis_warning", None)
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Failed to analyze {selected_record.display_name}: {exc}")
+
+    if upload_video_btn and uploaded_video is not None:
+        try:
+            saved_video = _save_uploaded_video_file(
+                uploads_root=library_dir,
+                uploaded_file=uploaded_video,
+            )
+            st.cache_resource.clear()
+            st.session_state["analysis_notice"] = f"Uploaded video saved to {saved_video}"
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Failed to save uploaded video: {exc}")
+
+    if enroll_person_btn and known_person_image is not None and known_person_name.strip():
+        try:
+            enrollment = _enroll_known_person_from_upload(
+                config=config,
+                person_name=known_person_name.strip(),
+                uploaded_image=known_person_image,
+            )
+            st.cache_resource.clear()
+            st.session_state["analysis_notice"] = (
+                f"Enrolled {enrollment['name']} from {enrollment['saved_image']}"
+            )
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Failed to enroll known person: {exc}")
+
     @st.cache_resource(show_spinner=False)
     def _build_agent_controller(api_key: str, model: str, ev_path: str):
         import importlib
@@ -208,6 +512,16 @@ def main() -> None:
     effective_key = api_key_input.strip() or os.environ.get("SARVAM_API_KEY", "")
     controller, init_error = _build_agent_controller(effective_key, model_name, str(selected_events_path))
 
+    if "analysis_notice" in st.session_state:
+        st.success(st.session_state.pop("analysis_notice"))
+    if "analysis_warning" in st.session_state:
+        st.warning(st.session_state.pop("analysis_warning"))
+
+    previous_active_video = st.session_state.get("active_video_display")
+    if previous_active_video != active_video_display:
+        st.session_state["active_video_display"] = active_video_display
+        st.session_state["messages"] = []
+
     if reload_btn and controller is not None:
         controller.reload_events()
         st.toast("Events reloaded")
@@ -216,6 +530,7 @@ def main() -> None:
 
     with tab_chat:
         st.markdown("#### CCTV Intelligence Chat")
+        st.caption(f"Current video scope: `{active_video_display}`")
 
         if init_error:
             st.error(f"Agent initialisation error: {init_error}")
@@ -228,8 +543,9 @@ def main() -> None:
 
         if event_count == 0:
             st.warning(
-                "No events loaded. Run the CCTV pipeline first:\n\n"
-                "```bash\npython main.py --config config.yaml\n```"
+                "No events loaded for the selected video yet. Use the sidebar button "
+                "`Analyze selected video`, or run:\n\n"
+                "```bash\npython main.py --config config.yaml --analyze-all-uploads\n```"
             )
 
         if "messages" not in st.session_state:
@@ -248,7 +564,9 @@ def main() -> None:
                                 st.video(str(clip_file))
                             else:
                                 st.warning(f"Clip file missing: {clip_file.name}")
-                            st.caption(f"`{clip['action']}` - {clip['person']}")
+                            st.caption(
+                                f"`{clip['action']}` - {clip['person']} | source: {clip.get('source_video', 'unknown video')}"
+                            )
 
         user_input = st.chat_input(
             "Ask about your CCTV footage... (for example: 'Show me unknown people yesterday evening')"
@@ -279,6 +597,9 @@ def main() -> None:
                                     "path": str(clip_path),
                                     "action": str(event.get("action", "unknown")),
                                     "person": str(event.get("person_id", "unknown")),
+                                    "source_video": str(
+                                        ((event.get("metadata", {}) or {}).get("source_video_name", "unknown video"))
+                                    ),
                                 }
                             )
 
@@ -292,7 +613,9 @@ def main() -> None:
                                 st.video(str(clip_file))
                             else:
                                 st.warning(f"Clip file missing: {clip_file.name}")
-                            st.caption(f"`{clip['action']}` - {clip['person']}")
+                            st.caption(
+                                f"`{clip['action']}` - {clip['person']} | source: {clip.get('source_video', 'unknown video')}"
+                            )
 
                 with st.expander("Query details", expanded=False):
                     col1, col2, col3 = st.columns(3)
@@ -333,6 +656,7 @@ def main() -> None:
 
         with col_left:
             st.markdown("#### Pipeline Artifacts")
+            st.caption(f"Current video scope: `{active_video_display}`")
 
             def _status_row(label: str, path: Path) -> None:
                 icon = "OK" if path.exists() else "MISSING"
@@ -344,8 +668,8 @@ def main() -> None:
 
             if not analysis_path.exists() and not events_path.exists():
                 st.info(
-                    "Run the pipeline to generate artifacts:\n\n"
-                    "```bash\npython main.py --config config.yaml\n```"
+                    "Use the sidebar button `Analyze selected video`, or run the pipeline manually:\n\n"
+                    "```bash\npython main.py --config config.yaml --analyze-all-uploads\n```"
                 )
 
             if summary_path.exists():
@@ -383,6 +707,7 @@ def main() -> None:
 
     with tab_raw:
         st.markdown("#### Raw Event Log")
+        st.caption(f"Current video scope: `{active_video_display}`")
 
         if not selected_events_path.exists():
             st.warning("No events.json found. Run the CCTV pipeline first.")
@@ -408,7 +733,8 @@ def main() -> None:
                         with st.expander(
                             f"[{event.get('start_time', '--')}] "
                             f"{event.get('person_id', 'unknown')} - "
-                            f"{event.get('action', 'unknown')}",
+                            f"{event.get('action', 'unknown')} "
+                            f"({((event.get('metadata', {}) or {}).get('source_video_name', 'unknown video'))})",
                             expanded=False,
                         ):
                             st.json(event)

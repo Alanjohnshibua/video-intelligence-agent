@@ -11,12 +11,13 @@ from video_intelligence_agent.cctv_pipeline.utils.logger import get_pipeline_log
 class EventLoggerService:
     """Writes structured events to JSON and supports simple queries."""
 
-    def __init__(self, output_path: Path | str) -> None:
+    def __init__(self, output_path: Path | str, *, load_existing: bool = False) -> None:
         self.output_path = Path(output_path)
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
         self.logger = get_pipeline_logger("event_logger")
         self._events: list[EventRecord] = []
-        self._load_existing_events()
+        if load_existing:
+            self._load_existing_events()
 
     def append(self, event: EventRecord) -> None:
         self._events.append(event)

@@ -1,0 +1,11 @@
+Video Intelligence Agent Summary
+Video: sample.mp4
+Frames processed: 1 / 3
+Motion frames: 2
+Detections: 1
+Tracked objects: 1
+Events detected: 1
+Errors encountered: 1
+
+Event timeline:
+[00:00:03.583] unknown_13 - movement (sample.mp4)

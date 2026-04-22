@@ -11,7 +11,7 @@ from video_intelligence_agent.cctv.models import (
     VideoAnalysisResult,
     VideoMetadata,
 )
-from video_intelligence_agent.cctv.motion import MotionDetector
+from video_intelligence_agent.cctv.motion import MotionDetector, MotionDetectorProtocol
 from video_intelligence_agent.cctv.person import (
     FaceIdentifierRecognizer,
     PersonRecognizerProtocol,
@@ -36,6 +36,7 @@ __all__ = [
     "FootageQueryAgent",
     "MotionAnalysis",
     "MotionDetector",
+    "MotionDetectorProtocol",
     "PersonObservation",
     "PersonRecognizerProtocol",
     "SimpleTrackManager",

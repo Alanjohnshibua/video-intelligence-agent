@@ -14,6 +14,7 @@ if str(SRC) not in sys.path:
 
 from video_intelligence_agent.cctv_pipeline import BaseAppError, PipelineConfig, VideoProcessor, load_pipeline_config
 from video_intelligence_agent.cctv_pipeline.utils.logger import configure_logging, get_pipeline_logger
+from video_intelligence_agent.video_library import discover_video_records, output_dir_for_video
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -22,6 +23,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--video", default="", help="Optional video path override.")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging and frame dumps.")
     parser.add_argument("--no-color", action="store_true", help="Disable ANSI color in terminal logs.")
+    parser.add_argument(
+        "--analyze-all-uploads",
+        action="store_true",
+        help="Process every video found under the configured upload library directory.",
+    )
     parser.add_argument("--query-person", default="", help="Optional person_id filter for event queries.")
     parser.add_argument("--query-action", default="", help="Optional action filter for event queries.")
     parser.add_argument("--query-limit", type=int, default=20, help="Maximum number of queried events to return.")
@@ -65,29 +71,62 @@ def main() -> int:
 
     try:
         config = load_pipeline_config(args.config)
-        if args.video:
-            config = replace(config, video_path=args.video)
-        if args.debug:
-            config = replace(
-                config,
-                debug=replace(config.debug, enabled=True, save_frames=True, draw_boxes=True),
+        if args.analyze_all_uploads:
+            run_results: list[dict[str, object]] = []
+            records = discover_video_records(
+                config.resolved_video_library_dir(),
+                config.resolved_library_output_dir(),
             )
-
-        processor = VideoProcessor(
-            config=config,
-            face_identifier=build_face_identifier(config, logger=logger),
-        )
-        result = processor.process_video()
-
-        if args.query_person or args.query_action:
-            query_results = processor.query_events(
-                person_id=args.query_person or None,
-                action=args.query_action or None,
-                limit=args.query_limit,
-            )
-            print(json.dumps(query_results, indent=2))
+            if not records:
+                logger.error("No uploaded videos were found in %s", config.resolved_video_library_dir())
+                return 1
+            for record in records:
+                run_config = _prepare_run_config(
+                    config,
+                    video_path=str(record.video_path),
+                    debug=args.debug,
+                    output_dir=record.output_dir,
+                )
+                processor = VideoProcessor(
+                    config=run_config,
+                    face_identifier=build_face_identifier(run_config, logger=logger),
+                )
+                result = processor.process_video()
+                run_results.append(
+                    {
+                        "video_path": str(record.video_path),
+                        "output_dir": str(record.output_dir),
+                        "events_detected": result.stats.events_detected,
+                        "events_path": str(result.artifacts.events_path),
+                        "analysis_path": str(result.artifacts.analysis_path) if result.artifacts.analysis_path else None,
+                    }
+                )
+            print(json.dumps(run_results, indent=2))
         else:
-            print(json.dumps(result.to_dict(), indent=2))
+            effective_video = args.video or config.video_path
+            output_dir = _resolve_output_dir_for_video(config, effective_video)
+            run_config = _prepare_run_config(
+                config,
+                video_path=args.video or None,
+                debug=args.debug,
+                output_dir=output_dir,
+            )
+
+            processor = VideoProcessor(
+                config=run_config,
+                face_identifier=build_face_identifier(run_config, logger=logger),
+            )
+            result = processor.process_video()
+
+            if args.query_person or args.query_action:
+                query_results = processor.query_events(
+                    person_id=args.query_person or None,
+                    action=args.query_action or None,
+                    limit=args.query_limit,
+                )
+                print(json.dumps(query_results, indent=2))
+            else:
+                print(json.dumps(result.to_dict(), indent=2))
         return 0
     except BaseAppError as exc:
         logger.error(str(exc))
@@ -95,6 +134,47 @@ def main() -> int:
     except Exception as exc:  # pragma: no cover - fatal fallback
         logger.error("Fatal pipeline error: %s", exc)
         return 1
+
+
+def _prepare_run_config(
+    config: PipelineConfig,
+    *,
+    video_path: str | None,
+    debug: bool,
+    output_dir: Path | None,
+) -> PipelineConfig:
+    updated = config
+    if video_path:
+        updated = replace(updated, video_path=video_path)
+    if output_dir is not None:
+        updated = replace(
+            updated,
+            storage=replace(updated.storage, output_dir=output_dir),
+        )
+    if debug:
+        updated = replace(
+            updated,
+            debug=replace(updated.debug, enabled=True, save_frames=True, draw_boxes=True),
+        )
+    return updated
+
+
+def _resolve_output_dir_for_video(config: PipelineConfig, video_path: str) -> Path | None:
+    if not video_path:
+        return None
+
+    video = Path(video_path).resolve()
+    library_dir = config.resolved_video_library_dir().resolve()
+    try:
+        video.relative_to(library_dir)
+    except ValueError:
+        return None
+
+    return output_dir_for_video(
+        video,
+        library_dir=library_dir,
+        output_root=config.resolved_library_output_dir(),
+    )
 
 
 if __name__ == "__main__":

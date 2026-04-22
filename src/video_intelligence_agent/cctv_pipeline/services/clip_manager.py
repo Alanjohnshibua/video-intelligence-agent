@@ -42,6 +42,77 @@ class ClipManager:
             return None
         return self.save_clip(clip_name=clip_name, frames=list(self._buffer))
 
+    def save_clip_for_time_range(
+        self,
+        *,
+        video_path: str | Path,
+        clip_name: str,
+        start_seconds: float,
+        end_seconds: float,
+        seconds_before: float = 0.0,
+        seconds_after: float = 0.0,
+    ) -> str | None:
+        """Extract a clip directly from the source video for the requested time range."""
+        if self._cv2 is None:
+            self.logger.warning("OpenCV is unavailable, clip %s was not written.", clip_name)
+            return None
+
+        capture = self._cv2.VideoCapture(str(video_path))
+        if not capture.isOpened():
+            raise EventStorageError(
+                f"Unable to open source video for clip extraction: {video_path}",
+                module="clip_manager",
+            )
+
+        try:
+            source_fps = float(capture.get(self._cv2.CAP_PROP_FPS) or 0.0) or self.fps
+            width = int(capture.get(self._cv2.CAP_PROP_FRAME_WIDTH) or 0)
+            height = int(capture.get(self._cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+            if width <= 0 or height <= 0:
+                raise EventStorageError(
+                    f"Source video dimensions are invalid for {video_path}",
+                    module="clip_manager",
+                )
+
+            start = max(start_seconds - seconds_before, 0.0)
+            end = max(end_seconds + seconds_after, start)
+            start_frame = max(int(start * source_fps), 0)
+            end_frame = max(int(end * source_fps), start_frame + 1)
+
+            capture.set(self._cv2.CAP_PROP_POS_FRAMES, start_frame)
+            path = self.clips_dir / f"{clip_name}.mp4"
+            writer = self._cv2.VideoWriter(
+                str(path),
+                self._cv2.VideoWriter_fourcc(*self.codec),
+                source_fps,
+                (width, height),
+            )
+            if not writer.isOpened():
+                raise EventStorageError(
+                    f"Unable to create video writer for {path}",
+                    module="clip_manager",
+                )
+
+            try:
+                current_frame = start_frame
+                while current_frame < end_frame:
+                    ok, frame = capture.read()
+                    if not ok or frame is None:
+                        break
+                    writer.write(frame)
+                    current_frame += 1
+            finally:
+                writer.release()
+            return str(path)
+        except OSError as exc:
+            raise EventStorageError(
+                f"Failed while extracting clip {clip_name} from {video_path}",
+                module="clip_manager",
+                cause=exc,
+            ) from exc
+        finally:
+            capture.release()
+
     def save_clip(self, *, clip_name: str, frames: list["np.ndarray"]) -> str | None:
         if not frames:
             return None

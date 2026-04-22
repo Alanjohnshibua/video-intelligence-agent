@@ -15,7 +15,7 @@ from video_intelligence_agent.cctv.models import (
     VideoAnalysisResult,
     VideoMetadata,
 )
-from video_intelligence_agent.cctv.motion import MotionDetector
+from video_intelligence_agent.cctv.motion import MotionDetector, MotionDetectorProtocol
 from video_intelligence_agent.cctv.person import PersonRecognizerProtocol, SimpleTrackManager
 from video_intelligence_agent.cctv.storage import EventStorageManager
 from video_intelligence_agent.cctv.summary import DailySummaryGenerator
@@ -49,7 +49,7 @@ class CCTVAnalysisPipeline:
         self,
         config: CCTVAgentConfig | None = None,
         *,
-        motion_detector: MotionDetector | None = None,
+        motion_detector: MotionDetectorProtocol | None = None,
         person_recognizer: PersonRecognizerProtocol | None = None,
         tracker: SimpleTrackManager | None = None,
         action_analyzer: ActionAnalyzer | None = None,

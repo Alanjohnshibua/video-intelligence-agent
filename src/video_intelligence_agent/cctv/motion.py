@@ -53,6 +53,12 @@ class OpenCVModuleProtocol(Protocol):
     def boundingRect(self, contour: object) -> tuple[int, int, int, int]: ...
 
 
+class MotionDetectorProtocol(Protocol):
+    def reset(self) -> None: ...
+
+    def analyze(self, frame: GenericImageArray) -> MotionAnalysis: ...
+
+
 def _load_cv2() -> OpenCVModuleProtocol | None:
     try:
         module = import_module("cv2")

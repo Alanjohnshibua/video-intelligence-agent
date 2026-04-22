@@ -45,9 +45,14 @@ class StubCompletions:
         return StubResponse(self.content)
 
 
+class StubChat:
+    def __init__(self, content: str) -> None:
+        self.completions = StubCompletions(content)
+
+
 class StubLLMClient:
     def __init__(self, content: str) -> None:
-        self.chat = type("StubChat", (), {"completions": StubCompletions(content)})()
+        self.chat = StubChat(content)
 
 
 class StubPersonIdentifier:

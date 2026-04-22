@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "video_path": "sample.mp4",
+    "fps": 1.0,
+    "total_frames": 3,
+    "width": 120,
+    "height": 80,
+    "duration_seconds": 3.0
+  },
+  "artifacts": {
+    "events_path": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\.manual_check_flush\\events.json",
+    "clips_dir": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\.manual_check_flush\\clips",
+    "analysis_path": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\.manual_check_flush\\latest_analysis.json",
+    "summary_path": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\.manual_check_flush\\daily_summary.txt",
+    "debug_dir": null
+  },
+  "stats": {
+    "total_frames_read": 3,
+    "processed_frames": 1,
+    "motion_frames": 2,
+    "skipped_frames": 1,
+    "detections": 1,
+    "tracked_objects": 1,
+    "events_detected": 1,
+    "corrupted_frames": 0,
+    "errors_encountered": 0
+  },
+  "errors": [],
+  "events": [
+    {
+      "event_id": "event-00009",
+      "person_id": "unknown_13",
+      "action": "movement",
+      "start_time": "00:00:03.583",
+      "end_time": "00:00:05.583",
+      "duration_seconds": 2.0,
+      "frame_index": 335,
+      "metadata": {
+        "start_seconds": 3.583,
+        "end_seconds": 5.583,
+        "source_video_name": "sample.mp4",
+        "source_video_stem": "sample",
+        "source_video_path": "sample.mp4",
+        "source_video_label": "sample"
+      },
+      "track_id": 13,
+      "clip_path": "memory://sample__event-00009_track-0013"
+    }
+  ]
+}

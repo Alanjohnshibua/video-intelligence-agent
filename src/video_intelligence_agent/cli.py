@@ -11,6 +11,7 @@ from typing import Protocol, cast
 from video_intelligence_agent.config import FaceIdentifierConfig
 from video_intelligence_agent.core import FaceIdentifier
 from video_intelligence_agent.image_io import GenericImageArray, load_image
+from video_intelligence_agent.video_library import discover_video_records, output_dir_for_video
 from video_intelligence_agent.video_summarizer import DEFAULT_LIGHTWEIGHT_MODEL_PATH
 
 
@@ -64,6 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
     analyze_cctv.add_argument("--config", default="config.yaml", help="Path to the flat config file.")
     analyze_cctv.add_argument("--video", default="", help="Optional video path override.")
     analyze_cctv.add_argument("--debug", action="store_true", help="Enable debug logs and saved debug frames.")
+    analyze_cctv.add_argument(
+        "--analyze-all-uploads",
+        action="store_true",
+        help="Process every uploaded video under the configured library directory.",
+    )
     analyze_cctv.add_argument("--query-person", default="", help="Optional person_id filter for event queries.")
     analyze_cctv.add_argument("--query-action", default="", help="Optional action filter for event queries.")
     analyze_cctv.add_argument(
@@ -273,35 +279,76 @@ def run_analyze_cctv(args: argparse.Namespace) -> int:
 
     try:
         config = load_pipeline_config(args.config)
-        if args.video:
-            config = replace(config, video_path=args.video)
-        if args.debug:
-            config = replace(
-                config,
-                debug=replace(config.debug, enabled=True, save_frames=True, draw_boxes=True),
+        if args.analyze_all_uploads:
+            records = discover_video_records(
+                config.resolved_video_library_dir(),
+                config.resolved_library_output_dir(),
             )
+            if not records:
+                pipeline_logger.error(
+                    "No uploaded videos were found in %s",
+                    config.resolved_video_library_dir(),
+                )
+                return 1
 
-        try:
-            face_identifier = build_identifier(args)
-        except Exception as exc:
-            pipeline_logger.warning(
-                "Face recognition failed to initialize. People will be labeled as unknown. reason=%s",
-                exc,
-            )
-            face_identifier = None
-
-        processor = VideoProcessor(config=config, face_identifier=face_identifier)
-        result = processor.process_video()
-
-        if args.query_person or args.query_action:
-            query_results = processor.query_events(
-                person_id=args.query_person or None,
-                action=args.query_action or None,
-                limit=args.query_limit,
-            )
-            print(json.dumps(query_results, indent=2))
+            run_results: list[dict[str, object]] = []
+            for record in records:
+                run_config = _prepare_cctv_run_config(
+                    config,
+                    video_path=str(record.video_path),
+                    debug=args.debug,
+                    output_dir=record.output_dir,
+                )
+                try:
+                    face_identifier = build_identifier(args)
+                except Exception as exc:
+                    pipeline_logger.warning(
+                        "Face recognition failed to initialize. People will be labeled as unknown. reason=%s",
+                        exc,
+                    )
+                    face_identifier = None
+                processor = VideoProcessor(config=run_config, face_identifier=face_identifier)
+                result = processor.process_video()
+                run_results.append(
+                    {
+                        "video_path": str(record.video_path),
+                        "output_dir": str(record.output_dir),
+                        "events_path": str(result.artifacts.events_path),
+                        "analysis_path": str(result.artifacts.analysis_path) if result.artifacts.analysis_path else None,
+                        "events_detected": result.stats.events_detected,
+                    }
+                )
+            print(json.dumps(run_results, indent=2))
         else:
-            print(json.dumps(result.to_dict(), indent=2))
+            output_dir = _resolve_output_dir_for_video(config, args.video or config.video_path)
+            run_config = _prepare_cctv_run_config(
+                config,
+                video_path=args.video or None,
+                debug=args.debug,
+                output_dir=output_dir,
+            )
+
+            try:
+                face_identifier = build_identifier(args)
+            except Exception as exc:
+                pipeline_logger.warning(
+                    "Face recognition failed to initialize. People will be labeled as unknown. reason=%s",
+                    exc,
+                )
+                face_identifier = None
+
+            processor = VideoProcessor(config=run_config, face_identifier=face_identifier)
+            result = processor.process_video()
+
+            if args.query_person or args.query_action:
+                query_results = processor.query_events(
+                    person_id=args.query_person or None,
+                    action=args.query_action or None,
+                    limit=args.query_limit,
+                )
+                print(json.dumps(query_results, indent=2))
+            else:
+                print(json.dumps(result.to_dict(), indent=2))
         return 0
     except BaseAppError as exc:
         pipeline_logger.error(str(exc))
@@ -309,6 +356,36 @@ def run_analyze_cctv(args: argparse.Namespace) -> int:
     except Exception as exc:  # pragma: no cover - fatal fallback
         pipeline_logger.error("Fatal CCTV pipeline error: %s", exc)
         return 1
+
+
+def _prepare_cctv_run_config(config, *, video_path: str | None, debug: bool, output_dir: Path | None):
+    updated = config
+    if video_path:
+        updated = replace(updated, video_path=video_path)
+    if output_dir is not None:
+        updated = replace(updated, storage=replace(updated.storage, output_dir=output_dir))
+    if debug:
+        updated = replace(
+            updated,
+            debug=replace(updated.debug, enabled=True, save_frames=True, draw_boxes=True),
+        )
+    return updated
+
+
+def _resolve_output_dir_for_video(config, video_path: str) -> Path | None:
+    if not video_path:
+        return None
+    video = Path(video_path).resolve()
+    library_dir = config.resolved_video_library_dir().resolve()
+    try:
+        video.relative_to(library_dir)
+    except ValueError:
+        return None
+    return output_dir_for_video(
+        video,
+        library_dir=library_dir,
+        output_root=config.resolved_library_output_dir(),
+    )
 
 
 def run_summarize_video(args: argparse.Namespace) -> int:

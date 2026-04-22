@@ -1,9 +1,0 @@
-CCTV Summary for lobby_demo.mp4
-Total activity duration: 83.6s across 6 event segments.
-People detected: 4 unique (2 known, 2 unknown).
-Alerts raised: 1 high, 2 medium, 3 low/info.
-Known individuals: Alan, Sara
-Key events:
-1. event-0003 | 2026-04-04T10:32:04 to 2026-04-04T10:32:11 | Category: unknown_person_detected | Alert: medium | People: Unknown Person | Actions: Unknown Person entering, Unknown Person walking
-2. event-0004 | 2026-04-04T10:35:18 to 2026-04-04T10:35:39 | Category: suspicious_presence | Alert: high | People: Unknown Person | Actions: Unknown Person loitering
-3. event-0005 | 2026-04-04T10:41:52 to 2026-04-04T10:42:03 | Category: entry | Alert: low | People: Alan | Actions: Alan entering, Alan walking

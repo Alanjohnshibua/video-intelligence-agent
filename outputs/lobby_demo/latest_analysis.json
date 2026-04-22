@@ -5,112 +5,269 @@
     "total_frames": 494,
     "width": 1280,
     "height": 720,
-    "duration_seconds": 19.76,
-    "recorded_at": "2026-04-04T22:20:08.202438"
+    "duration_seconds": 19.76
   },
-  "activities": [
+  "artifacts": {
+    "events_path": "outputs\\lobby_demo\\events.json",
+    "clips_dir": "outputs\\lobby_demo\\clips",
+    "analysis_path": "outputs\\lobby_demo\\latest_analysis.json",
+    "summary_path": "outputs\\lobby_demo\\daily_summary.txt",
+    "debug_dir": null
+  },
+  "stats": {
+    "total_frames_read": 99,
+    "processed_frames": 98,
+    "motion_frames": 98,
+    "skipped_frames": 1,
+    "detections": 172,
+    "tracked_objects": 172,
+    "events_detected": 9,
+    "corrupted_frames": 0,
+    "errors_encountered": 0
+  },
+  "errors": [],
+  "events": [
     {
-      "event_id": "event-0001",
-      "start_time_seconds": 0.2,
-      "end_time_seconds": 19.6,
-      "duration_seconds": 19.4,
-      "start_frame_index": 5,
-      "end_frame_index": 490,
-      "motion_score_mean": 0.219118,
-      "people": [
-        {
-          "name": "Unknown Person",
-          "confidence": 0.0,
-          "known": false,
-          "track_id": "track-0001",
-          "tracked_duration_seconds": 18.6,
-          "bbox": {
-            "x": 0,
-            "y": 488,
-            "w": 192,
-            "h": 192
-          },
-          "metadata": {
-            "source": "video_intelligence_agent",
-            "movement_px": 678.69,
-            "is_new_track": false
-          }
-        },
-        {
-          "name": "Unknown Person",
-          "confidence": 0.0,
-          "known": false,
-          "track_id": "track-0002",
-          "tracked_duration_seconds": 18.6,
-          "bbox": {
-            "x": 525,
-            "y": 315,
-            "w": 199,
-            "h": 199
-          },
-          "metadata": {
-            "source": "video_intelligence_agent",
-            "movement_px": 605.14,
-            "is_new_track": false
-          }
-        },
-        {
-          "name": "Unknown Person",
-          "confidence": 0.0,
-          "known": false,
-          "track_id": "track-0003",
-          "tracked_duration_seconds": 7.4,
-          "bbox": {
-            "x": 993,
-            "y": 240,
-            "w": 87,
-            "h": 87
-          },
-          "metadata": {
-            "source": "video_intelligence_agent",
-            "movement_px": 348.02,
-            "is_new_track": false
-          }
-        }
-      ],
-      "actions": [
-        "Unknown Person exiting",
-        "Unknown Person walking",
-        "people interacting",
-        "Unknown Person loitering"
-      ],
-      "event_category": "suspicious_presence",
-      "alert_level": "high",
-      "alert_reasons": [
-        "unknown person detected",
-        "loitering behavior detected",
-        "multi-person interaction detected",
-        "exit event detected"
-      ],
-      "start_timestamp": "2026-04-04T22:20:08",
-      "end_timestamp": "2026-04-04T22:20:27",
-      "clip_path": "outputs\\lobby_demo\\clips\\event-0001.mp4",
-      "unknown_snapshot_paths": [
-        "outputs\\lobby_demo\\snapshots\\event-0001_track-0001_00000200.jpg",
-        "outputs\\lobby_demo\\snapshots\\event-0001_track-0002_00001000.jpg",
-        "outputs\\lobby_demo\\snapshots\\event-0001_track-0003_00012200.jpg"
-      ],
+      "event_id": "event-00001",
+      "person_id": "unknown_3",
+      "action": "entering",
+      "start_time": "00:00:03.600",
+      "end_time": "00:00:07.400",
+      "duration_seconds": 3.8,
+      "frame_index": 185,
       "metadata": {
-        "frame_count": 98
-      }
+        "known": false,
+        "identity_confidence": 0.0,
+        "start_seconds": 3.6,
+        "end_seconds": 7.4,
+        "start_zone": "edge",
+        "end_zone": "center",
+        "source_video_name": "1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_stem": "1475699_People_Lifestyle_1280x720",
+        "source_video_path": "samples\\1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_label": "1475699_People_Lifestyle_1280x720"
+      },
+      "track_id": 3,
+      "clip_path": "outputs\\lobby_demo\\clips\\1475699_People_Lifestyle_1280x720__event-00001_track-0003.mp4"
+    },
+    {
+      "event_id": "event-00002",
+      "person_id": "unknown_3",
+      "action": "exiting",
+      "start_time": "00:00:03.600",
+      "end_time": "00:00:10.600",
+      "duration_seconds": 7.0,
+      "frame_index": 265,
+      "metadata": {
+        "known": false,
+        "identity_confidence": 0.0,
+        "start_seconds": 3.6,
+        "end_seconds": 10.6,
+        "start_zone": "edge",
+        "end_zone": "edge",
+        "source_video_name": "1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_stem": "1475699_People_Lifestyle_1280x720",
+        "source_video_path": "samples\\1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_label": "1475699_People_Lifestyle_1280x720"
+      },
+      "track_id": 3,
+      "clip_path": "outputs\\lobby_demo\\clips\\1475699_People_Lifestyle_1280x720__event-00002_track-0003.mp4"
+    },
+    {
+      "event_id": "event-00003",
+      "person_id": "unknown_1",
+      "action": "loitering",
+      "start_time": "00:00:00.200",
+      "end_time": "00:00:15.600",
+      "duration_seconds": 15.4,
+      "frame_index": 390,
+      "metadata": {
+        "known": false,
+        "identity_confidence": 0.0,
+        "start_seconds": 0.2,
+        "end_seconds": 15.6,
+        "radius_px": 22.36,
+        "source_video_name": "1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_stem": "1475699_People_Lifestyle_1280x720",
+        "source_video_path": "samples\\1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_label": "1475699_People_Lifestyle_1280x720"
+      },
+      "track_id": 1,
+      "clip_path": "outputs\\lobby_demo\\clips\\1475699_People_Lifestyle_1280x720__event-00003_track-0001.mp4"
+    },
+    {
+      "event_id": "event-00004",
+      "person_id": "unknown_5",
+      "action": "entering",
+      "start_time": "00:00:15.400",
+      "end_time": "00:00:15.800",
+      "duration_seconds": 0.4,
+      "frame_index": 395,
+      "metadata": {
+        "known": false,
+        "identity_confidence": 0.0,
+        "start_seconds": 15.4,
+        "end_seconds": 15.8,
+        "start_zone": "edge",
+        "end_zone": "center",
+        "source_video_name": "1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_stem": "1475699_People_Lifestyle_1280x720",
+        "source_video_path": "samples\\1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_label": "1475699_People_Lifestyle_1280x720"
+      },
+      "track_id": 5,
+      "clip_path": "outputs\\lobby_demo\\clips\\1475699_People_Lifestyle_1280x720__event-00004_track-0005.mp4"
+    },
+    {
+      "event_id": "event-00005",
+      "person_id": "unknown_1",
+      "action": "movement",
+      "start_time": "00:00:00.200",
+      "end_time": "00:00:19.600",
+      "duration_seconds": 19.4,
+      "frame_index": 490,
+      "metadata": {
+        "known": false,
+        "identity_confidence": 0.0,
+        "start_seconds": 0.2,
+        "end_seconds": 19.6,
+        "start_zone": "center",
+        "end_zone": "center",
+        "start_center": [
+          680.0,
+          378.5
+        ],
+        "end_center": [
+          762.5,
+          408.0
+        ],
+        "displacement_px": 87.62,
+        "source_video_name": "1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_stem": "1475699_People_Lifestyle_1280x720",
+        "source_video_path": "samples\\1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_label": "1475699_People_Lifestyle_1280x720"
+      },
+      "track_id": 1,
+      "clip_path": "outputs\\lobby_demo\\clips\\1475699_People_Lifestyle_1280x720__event-00005_track-0001.mp4"
+    },
+    {
+      "event_id": "event-00006",
+      "person_id": "unknown_5",
+      "action": "exiting",
+      "start_time": "00:00:15.400",
+      "end_time": "00:00:19.600",
+      "duration_seconds": 4.2,
+      "frame_index": 490,
+      "metadata": {
+        "known": false,
+        "identity_confidence": 0.0,
+        "start_seconds": 15.4,
+        "end_seconds": 19.6,
+        "start_zone": "edge",
+        "end_zone": "edge",
+        "source_video_name": "1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_stem": "1475699_People_Lifestyle_1280x720",
+        "source_video_path": "samples\\1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_label": "1475699_People_Lifestyle_1280x720"
+      },
+      "track_id": 5,
+      "clip_path": "outputs\\lobby_demo\\clips\\1475699_People_Lifestyle_1280x720__event-00006_track-0005.mp4"
+    },
+    {
+      "event_id": "event-00007",
+      "person_id": "unknown_5",
+      "action": "movement",
+      "start_time": "00:00:15.400",
+      "end_time": "00:00:19.600",
+      "duration_seconds": 4.2,
+      "frame_index": 490,
+      "metadata": {
+        "known": false,
+        "identity_confidence": 0.0,
+        "start_seconds": 15.4,
+        "end_seconds": 19.6,
+        "start_zone": "edge",
+        "end_zone": "edge",
+        "start_center": [
+          1197.5,
+          350.0
+        ],
+        "end_center": [
+          1162.0,
+          356.5
+        ],
+        "displacement_px": 36.09,
+        "source_video_name": "1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_stem": "1475699_People_Lifestyle_1280x720",
+        "source_video_path": "samples\\1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_label": "1475699_People_Lifestyle_1280x720"
+      },
+      "track_id": 5,
+      "clip_path": "outputs\\lobby_demo\\clips\\1475699_People_Lifestyle_1280x720__event-00007_track-0005.mp4"
+    },
+    {
+      "event_id": "event-00008",
+      "person_id": "unknown_6",
+      "action": "movement",
+      "start_time": "00:00:15.400",
+      "end_time": "00:00:17.800",
+      "duration_seconds": 2.4,
+      "frame_index": 445,
+      "metadata": {
+        "known": false,
+        "identity_confidence": 0.0,
+        "start_seconds": 15.4,
+        "end_seconds": 17.8,
+        "start_zone": "edge",
+        "end_zone": "edge",
+        "start_center": [
+          31.0,
+          497.5
+        ],
+        "end_center": [
+          40.5,
+          588.5
+        ],
+        "displacement_px": 91.49,
+        "source_video_name": "1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_stem": "1475699_People_Lifestyle_1280x720",
+        "source_video_path": "samples\\1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_label": "1475699_People_Lifestyle_1280x720"
+      },
+      "track_id": 6,
+      "clip_path": "outputs\\lobby_demo\\clips\\1475699_People_Lifestyle_1280x720__event-00008_track-0006.mp4"
+    },
+    {
+      "event_id": "event-00009",
+      "person_id": "unknown_11",
+      "action": "movement",
+      "start_time": "00:00:19.200",
+      "end_time": "00:00:19.600",
+      "duration_seconds": 0.4,
+      "frame_index": 490,
+      "metadata": {
+        "known": false,
+        "identity_confidence": 0.0,
+        "start_seconds": 19.2,
+        "end_seconds": 19.6,
+        "start_zone": "edge",
+        "end_zone": "edge",
+        "start_center": [
+          99.0,
+          498.5
+        ],
+        "end_center": [
+          105.5,
+          471.0
+        ],
+        "displacement_px": 28.26,
+        "source_video_name": "1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_stem": "1475699_People_Lifestyle_1280x720",
+        "source_video_path": "samples\\1475699_People_Lifestyle_1280x720.mp4",
+        "source_video_label": "1475699_People_Lifestyle_1280x720"
+      },
+      "track_id": 11,
+      "clip_path": "outputs\\lobby_demo\\clips\\1475699_People_Lifestyle_1280x720__event-00009_track-0011.mp4"
     }
-  ],
-  "summary": {
-    "generated_at": "2026-04-04T23:41:02.075782",
-    "total_activity_duration": 19.4,
-    "total_events": 1,
-    "total_people_detected": 3,
-    "known_people": [],
-    "unknown_people_count": 3,
-    "key_events": [
-      "event-0001 | 2026-04-04T22:20:08 to 2026-04-04T22:20:27 | Category: suspicious_presence | Alert: high | People: Unknown Person, Unknown Person, Unknown Person | Actions: Unknown Person exiting, Unknown Person walking, people interacting, Unknown Person loitering"
-    ],
-    "summary_text": "CCTV Summary for samples\\1475699_People_Lifestyle_1280x720.mp4\nTotal activity duration: 19.4s across 1 event segments.\nPeople detected: 3 unique (0 known, 3 unknown).\nAlerts raised: 1 high, 0 medium, 0 low/info.\nKnown individuals: none detected\nKey events:\n1. event-0001 | 2026-04-04T22:20:08 to 2026-04-04T22:20:27 | Category: suspicious_presence | Alert: high | People: Unknown Person, Unknown Person, Unknown Person | Actions: Unknown Person exiting, Unknown Person walking, people interacting, Unknown Person loitering"
-  },
-  "storage_reduction_ratio": 0.8016
+  ]
 }

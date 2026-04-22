@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from video_intelligence_agent.cctv_pipeline.services.clip_manager import ClipManager
 from video_intelligence_agent.cctv_pipeline.utils.logger import get_pipeline_logger
 
 if TYPE_CHECKING:
@@ -110,6 +111,70 @@ class EventRetriever:
         """Return the full cached event list."""
         return self.load()
 
+    def ensure_clips(self, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Backfill missing clip files for matched events when enough metadata is available."""
+        if not events:
+            return events
+
+        clip_manager: ClipManager | None = None
+        updated = False
+        for event in events:
+            if event.get("clip_path"):
+                continue
+            metadata = event.get("metadata", {}) or {}
+            source_video_path = metadata.get("source_video_path")
+            start_seconds = metadata.get("start_seconds")
+            end_seconds = metadata.get("end_seconds")
+            if not isinstance(source_video_path, str):
+                continue
+            if not isinstance(start_seconds, (int, float)) or not isinstance(end_seconds, (int, float)):
+                continue
+
+            if clip_manager is None:
+                clip_manager = ClipManager(
+                    clips_dir=self._events_path.parent / "clips",
+                    debug_dir=self._events_path.parent / "debug",
+                    codec="mp4v",
+                    fps=1.0,
+                    pre_event_seconds=2.0,
+                )
+
+            clip_basename = _clip_basename_for_event(event)
+            try:
+                clip_path = clip_manager.save_clip_for_time_range(
+                    video_path=source_video_path,
+                    clip_name=clip_basename,
+                    start_seconds=float(start_seconds),
+                    end_seconds=float(end_seconds),
+                    seconds_before=2.0,
+                    seconds_after=2.0,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to backfill clip for event %s: %s",
+                    event.get("event_id", "unknown"),
+                    exc,
+                )
+                continue
+
+            if clip_path:
+                event["clip_path"] = clip_path
+                updated = True
+
+        if updated:
+            self._flush_cache()
+        return events
+
+    def _flush_cache(self) -> None:
+        """Persist the cached event list after in-memory enrichment."""
+        if self._cache is None:
+            return
+        self._events_path.parent.mkdir(parents=True, exist_ok=True)
+        self._events_path.write_text(
+            json.dumps(self._cache, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
 
 def _passes_time_filter(event: dict[str, Any], window: "TimeWindow") -> bool:
     """Return True when the event start time falls within the resolved window."""
@@ -178,3 +243,12 @@ def _deduplicate(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
             seen.add(key)
             unique.append(event)
     return unique
+
+
+def _clip_basename_for_event(event: dict[str, Any]) -> str:
+    """Reconstruct a stable clip filename for an event when backfilling on demand."""
+    metadata = event.get("metadata", {}) or {}
+    source_label = str(metadata.get("source_video_label", "video"))
+    event_id = str(event.get("event_id", "event"))
+    track_id = int(event.get("track_id", 0) or 0)
+    return f"{source_label}__{event_id}_track-{track_id:04d}"

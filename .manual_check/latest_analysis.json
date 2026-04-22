@@ -1,0 +1,49 @@
+{
+  "metadata": {
+    "video_path": "sample.mp4",
+    "fps": 1.0,
+    "total_frames": 3,
+    "width": 120,
+    "height": 80,
+    "duration_seconds": 3.0
+  },
+  "artifacts": {
+    "events_path": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\.manual_check\\events.json",
+    "clips_dir": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\.manual_check\\clips",
+    "analysis_path": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\.manual_check\\latest_analysis.json",
+    "summary_path": "C:\\Users\\Alan_js\\DEVELOPER\\AI-KYRO\\project\\video-intelligence-agent\\.manual_check\\daily_summary.txt",
+    "debug_dir": null
+  },
+  "stats": {
+    "total_frames_read": 3,
+    "processed_frames": 1,
+    "motion_frames": 2,
+    "skipped_frames": 1,
+    "detections": 1,
+    "tracked_objects": 1,
+    "events_detected": 1,
+    "corrupted_frames": 0,
+    "errors_encountered": 0
+  },
+  "errors": [],
+  "events": [
+    {
+      "event_id": "event-00001",
+      "person_id": "alice",
+      "action": "entering",
+      "start_time": "00:00:02.000",
+      "end_time": "00:00:02.000",
+      "duration_seconds": 0.0,
+      "frame_index": 2,
+      "metadata": {
+        "known": true,
+        "source_video_name": "sample.mp4",
+        "source_video_stem": "sample",
+        "source_video_path": "sample.mp4",
+        "source_video_label": "sample"
+      },
+      "track_id": 1,
+      "clip_path": "memory://sample__event-00001_track-0001"
+    }
+  ]
+}

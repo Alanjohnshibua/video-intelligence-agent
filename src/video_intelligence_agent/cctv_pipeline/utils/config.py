@@ -37,6 +37,8 @@ class PipelineConfig:
     """Configuration for the CCTV analysis pipeline."""
 
     video_path: str = ""
+    video_library_dir: Path | str = Path("data/clip_library/uploads")
+    library_output_dir: Path | str = Path("outputs/clip_library")
     yolo_model_path: str = "yolov8n.pt"
     yolo_device: str = "cpu"
     database_path: Path | str = Path("data/embeddings.pkl")
@@ -55,6 +57,7 @@ class PipelineConfig:
     tracker_iou_threshold: float = 0.3
     loitering_seconds: float = 15.0
     loitering_radius_px: float = 35.0
+    movement_min_distance_px: float = 24.0
     border_margin_ratio: float = 0.12
     unknown_label_prefix: str = "unknown"
     debug: DebugConfig = field(default_factory=DebugConfig)
@@ -63,8 +66,20 @@ class PipelineConfig:
     def resolved_output_dir(self) -> Path:
         return Path(self.storage.output_dir)
 
+    def resolved_video_library_dir(self) -> Path:
+        return Path(self.video_library_dir)
+
+    def resolved_library_output_dir(self) -> Path:
+        return Path(self.library_output_dir)
+
     def resolved_events_path(self) -> Path:
         return self.resolved_output_dir() / self.storage.event_filename
+
+    def resolved_analysis_path(self) -> Path:
+        return self.resolved_output_dir() / "latest_analysis.json"
+
+    def resolved_summary_path(self) -> Path:
+        return self.resolved_output_dir() / "daily_summary.txt"
 
     def resolved_clips_dir(self) -> Path:
         return self.resolved_output_dir() / "clips"
@@ -115,6 +130,11 @@ class PipelineConfig:
                 "loitering_radius_px must be greater than or equal to 0.",
                 module="config",
             )
+        if self.movement_min_distance_px < 0.0:
+            raise ConfigurationError(
+                "movement_min_distance_px must be greater than or equal to 0.",
+                module="config",
+            )
         if not 0.0 <= self.border_margin_ratio < 0.5:
             raise ConfigurationError(
                 "border_margin_ratio must be between 0 and 0.5.",
@@ -162,6 +182,12 @@ class PipelineConfig:
         )
         config = cls(
             video_path=_get_str(data, "video_path", default.video_path),
+            video_library_dir=_get_path_or_str(data, "video_library_dir", default.video_library_dir),
+            library_output_dir=_get_path_or_str(
+                data,
+                "library_output_dir",
+                default.library_output_dir,
+            ),
             yolo_model_path=_get_str(data, "yolo_model_path", default.yolo_model_path),
             yolo_device=_get_str(data, "yolo_device", default.yolo_device),
             database_path=_get_path_or_str(data, "database_path", default.database_path),
@@ -194,15 +220,20 @@ class PipelineConfig:
                 "tracker_iou_threshold",
                 default.tracker_iou_threshold,
             ),
-            loitering_seconds=_get_float(
+            loitering_seconds=_get_float_with_aliases(
                 data,
-                "loitering_seconds",
+                ["loitering_seconds", "loitering_threshold_sec"],
                 default.loitering_seconds,
             ),
             loitering_radius_px=_get_float(
                 data,
                 "loitering_radius_px",
                 default.loitering_radius_px,
+            ),
+            movement_min_distance_px=_get_float_with_aliases(
+                data,
+                ["movement_min_distance_px", "walking_distance_px"],
+                default.movement_min_distance_px,
             ),
             border_margin_ratio=_get_float(
                 data,
@@ -300,3 +331,13 @@ def _get_float(data: dict[str, object], key: str, default: float) -> float:
 def _get_bool(data: dict[str, object], key: str, default: bool) -> bool:
     value = _get_value(data, key, default)
     return value if isinstance(value, bool) else default
+
+
+def _get_float_with_aliases(data: dict[str, object], keys: list[str], default: float) -> float:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            return float(value)
+    return default
