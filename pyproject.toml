@@ -7,7 +7,7 @@ name = "video-intelligence-agent"
 version = "0.1.0"
 description = "Hybrid CV + LLM video intelligence system for CCTV analysis, event extraction, reasoning, and summarization."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<4.0"
 license = { text = "MIT" }
 authors = [
   { name = "Alan" }
