@@ -14,6 +14,13 @@ authors = [
 ]
 dependencies = [
   "numpy>=2.0.0",
+  "streamlit>=1.35.0",
+  "opencv-python>=4.10.0",
+  "torch>=2.2.0",
+  "deepface>=0.0.93",
+  "ultralytics>=8.3.0",
+  "huggingface-hub>=0.24.0",
+  "sarvamai>=0.1.27",
 ]
 
 [project.optional-dependencies]
