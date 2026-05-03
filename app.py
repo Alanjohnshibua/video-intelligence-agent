@@ -123,6 +123,15 @@ def main() -> None:
 
     with st.sidebar:
         st.markdown("### Agent Configuration")
+        
+        api_key_input = st.text_input(
+            "Sarvam API Key",
+            value=os.environ.get("SARVAM_API_KEY", ""),
+            type="password",
+            help="Your Sarvam AI subscription key. Leave blank to use SARVAM_API_KEY.",
+            key="sarvam_api_key",
+        )
+
 
         model_name = st.selectbox(
             "Sarvam Model",
